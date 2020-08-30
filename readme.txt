@@ -27,7 +27,7 @@ More detailed features:
 - Automatically imports server settings from serverconfig.xml (or comparable file) and creates a temporary file... leaving the original file untouched.
 
 -----------------
- GETTING STARTED (Two sets of instructions: one for existing servers and the other to use the 7dtdServerUpdateUtility tool to download and install a new dedicated server)
+ GETTING STARTED (Two sets of instructions: one for existing servers and the other to use the EmpyrionServerUpdateUtility tool to download and install a new dedicated server)
 -----------------
 
 EXISTING SERVER:
