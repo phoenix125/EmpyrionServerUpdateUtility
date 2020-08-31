@@ -19388,8 +19388,8 @@ Return $tPalette
 EndFunc
 Opt("GUIOnEventMode", 1)
 Opt("GUIResizeMode", $GUI_DOCKLEFT + $GUI_DOCKTOP)
-$aUtilVerStable = "v0.1.0"
-$aUtilVerBeta = "v0.1.0"
+$aUtilVerStable = "v1.0.0"
+$aUtilVerBeta = "v1.0.0"
 $aUtilVersion = $aUtilVerStable
 Global $aUtilVerNumber = 0
 Global Const $aServerEXE = "EmpyrionLauncher.exe"
@@ -19512,6 +19512,7 @@ Global $aFPCount = 0
 Global $aFPClock = _NowCalc()
 Global $aMaxPlayers = 0
 Global $aUpdateSource = "0"
+Global $aServerPID = 0
 Global $aServerPort = 0
 Global $aTelnetPort = 0
 Global $aServerName = ""
@@ -19588,8 +19589,9 @@ Local $tFileName = $xFileName[3] & $xFileName[4]
 $tMsg = MsgBox($MB_YESNO, $aConfigFile & " Not Found", "Could not find " & $aGameName & " Config: [" & $tFileName & "]" & @CRLF & @CRLF & $sConfigPath & @CRLF & @CRLF & "This is normal for New Install" & @CRLF & "Do you wish to continue with installation?" & @CRLF & "(YES) Continue with installation" & @CRLF & "(NO) Open Config Window", 60)
 If $tMsg = 7 Then
 LogWrite("!!! ERROR !!! Could not find " & $sConfigPath & ". Config Window opened.")
-GUI_Config()
+GUI_Config(False, $aSplash)
 Else
+$aSplash = _Splash($aUtilName & " started.")
 EndIf
 EndIf
 Global $aServerTelnetReboot = "no"
@@ -23568,7 +23570,7 @@ DllCall("User32.dll", "int", "RemoveMenu", "hwnd", $hSysMenu, "int", 0xF060, "in
 DllCall("User32.dll", "int", "DrawMenuBar", "hwnd", $tHwd)
 EndFunc
 #Region ### START Koda GUI section ### Form=K:\AutoIT\_MyProgs\EmpyrionServerUpdateUtility\Koda GUIs\Empyrion_W1(b3).kxf
-Func GUI_Config($tNewInstallTF = False)
+Func GUI_Config($tNewInstallTF = False, $tSplash = 0)
 If WinExists($hGUI_LoginLogo) Then GUIDelete($hGUI_LoginLogo)
 If WinExists($Config) Then
 _WinAPI_SetWindowPos($Config, $HWND_TOPMOST, 0, 0, 0, 0, BitOR($SWP_NOACTIVATE, $SWP_NOMOVE, $SWP_NOSIZE))
@@ -24453,6 +24455,7 @@ GUICtrlCreateGroup("", -99, -99, 1, 1)
 Global $Pic3 = GUICtrlCreatePic($aFolderTemp & "alienchatclose.jpg", 562, 70, 317, 153)
 GUICtrlSetOnEvent(-1, "Pic3Click")
 Global $Tab5 = GUICtrlCreateTabItem("5 Discord Webhooks")
+GUICtrlSetState(-1, $GUI_SHOW)
 Global $Group3 = GUICtrlCreateGroup("Discord Webhooks", 38, 65, 831, 325)
 GUICtrlSetFont(-1, 10, 400, 0, "arial")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
@@ -24648,43 +24651,23 @@ Global $W1_T5_C_WHChat4 = GUICtrlCreateCheckbox("#4", 527, 464, 30, 17)
 GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T5_C_WHChat4Click")
-Global $Label66 = GUICtrlCreateLabel("Webhook(s) to send PLAYER DEATH Messages to:", 58, 485, 315, 20)
-GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
-GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
-GUICtrlSetOnEvent(-1, "Label66Click")
-Global $W1_T5_C_WHDie1 = GUICtrlCreateCheckbox("#1", 403, 486, 30, 17)
-GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
-GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
-GUICtrlSetOnEvent(-1, "W1_T5_C_WHDie1Click")
-Global $W1_T5_C_WHDie2 = GUICtrlCreateCheckbox("#2", 444, 486, 30, 17)
-GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
-GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
-GUICtrlSetOnEvent(-1, "W1_T5_C_WHDie2Click")
-Global $W1_T5_C_WHDie3 = GUICtrlCreateCheckbox("#3", 485, 486, 30, 17)
-GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
-GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
-GUICtrlSetOnEvent(-1, "W1_T5_C_WHDie3Click")
-Global $W1_T5_C_WHDie4 = GUICtrlCreateCheckbox("#4", 527, 486, 30, 17)
-GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
-GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
-GUICtrlSetOnEvent(-1, "W1_T5_C_WHDie4Click")
-Global $Label102 = GUICtrlCreateLabel("Webhook(s) to send ALL CHAT Messages to:", 58, 507, 275, 20)
+Global $Label102 = GUICtrlCreateLabel("Webhook(s) to send ALL CHAT Messages to:", 58, 485, 275, 20)
 GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "Label102Click")
-Global $W1_T5_C_WHAllChat1 = GUICtrlCreateCheckbox("#1", 403, 508, 30, 17)
+Global $W1_T5_C_WHAllChat1 = GUICtrlCreateCheckbox("#1", 403, 486, 30, 17)
 GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T5_C_WHAllChat1Click")
-Global $W1_T5_C_WHAllChat2 = GUICtrlCreateCheckbox("#2", 444, 508, 30, 17)
+Global $W1_T5_C_WHAllChat2 = GUICtrlCreateCheckbox("#2", 444, 486, 30, 17)
 GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T5_C_WHAllChat2Click")
-Global $W1_T5_C_WHAllChat3 = GUICtrlCreateCheckbox("#3", 485, 508, 30, 17)
+Global $W1_T5_C_WHAllChat3 = GUICtrlCreateCheckbox("#3", 485, 486, 30, 17)
 GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T5_C_WHAllChat3Click")
-Global $W1_T5_C_WHAllChat4 = GUICtrlCreateCheckbox("#4", 527, 508, 30, 17)
+Global $W1_T5_C_WHAllChat4 = GUICtrlCreateCheckbox("#4", 527, 486, 30, 17)
 GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T5_C_WHAllChat4Click")
@@ -24692,7 +24675,6 @@ GUICtrlCreateGroup("", -99, -99, 1, 1)
 Global $Pic6 = GUICtrlCreatePic($aFolderTemp & "Canned_Vegetables.jpg", 690, 426, 91, 97)
 GUICtrlSetOnEvent(-1, "Pic6Click")
 Global $Tab6 = GUICtrlCreateTabItem("6 Discord Announcements")
-GUICtrlSetState(-1, $GUI_SHOW)
 Global $Group12 = GUICtrlCreateGroup("Discord Announcements", 18, 75, 867, 455)
 GUICtrlSetFont(-1, 10, 400, 0, "arial")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
@@ -24708,7 +24690,7 @@ Global $W1_T6_C_Update = GUICtrlCreateCheckbox("Update", 32, 147, 112, 17)
 GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T6_C_UpdateClick")
-Global $W1_T6_I_Update = GUICtrlCreateInput("", 147, 144, 728, 22)
+Global $W1_T6_I_Update = GUICtrlCreateInput("Input13", 147, 144, 728, 22)
 GUICtrlSetFont(-1, 8, 400, 0, "arial")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T6_I_UpdateChange")
@@ -24716,7 +24698,7 @@ Global $W1_T6_C_Remote = GUICtrlCreateCheckbox("Remote Restart", 32, 176, 112, 1
 GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T6_C_RemoteClick")
-Global $W1_T6_I_Remote = GUICtrlCreateInput("", 147, 173, 728, 22)
+Global $W1_T6_I_Remote = GUICtrlCreateInput("Input13", 147, 173, 728, 22)
 GUICtrlSetFont(-1, 8, 400, 0, "arial")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T6_I_RemoteChange")
@@ -24736,18 +24718,18 @@ Global $W1_T6_C_PlayerChange = GUICtrlCreateCheckbox("Online Player Change", 31,
 GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T6_C_PlayerChangeClick")
-Global $W1_T6_I_PlayerChange = GUICtrlCreateInput("", 182, 272, 692, 22)
+Global $W1_T6_I_PlayerChange = GUICtrlCreateInput("Input13", 182, 272, 692, 22)
 GUICtrlSetFont(-1, 8, 400, 0, "arial")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T6_I_PlayerChangeChange")
-Global $W1_T6_I_SubJoined = GUICtrlCreateInput("", 230, 299, 644, 22)
+Global $W1_T6_I_SubJoined = GUICtrlCreateInput("Input13", 230, 299, 644, 22)
 GUICtrlSetFont(-1, 8, 400, 0, "Arial")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T6_I_SubJoinedChange")
 Global $Label21 = GUICtrlCreateLabel("Joined Player Sub-Message ( \j )", 69, 303, 157, 17)
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "Label21Click")
-Global $W1_T6_I_SubLeft = GUICtrlCreateInput("", 230, 326, 644, 22)
+Global $W1_T6_I_SubLeft = GUICtrlCreateInput("Input13", 230, 326, 644, 22)
 GUICtrlSetFont(-1, 8, 400, 0, "arial")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T6_I_SubLeftChange")
@@ -24757,7 +24739,7 @@ GUICtrlSetOnEvent(-1, "Label67Click")
 Global $Label68 = GUICtrlCreateLabel("Online Player Sub-Message ( \a )", 67, 357, 160, 17)
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "Label68Click")
-Global $W1_T6_I_SubOnlinePlayer = GUICtrlCreateInput("", 230, 353, 644, 22)
+Global $W1_T6_I_SubOnlinePlayer = GUICtrlCreateInput("Input13", 230, 353, 644, 22)
 GUICtrlSetFont(-1, 8, 400, 0, "arial")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T6_I_SubOnlinePlayerChange")
@@ -24765,7 +24747,7 @@ Global $W1_T6_C_PlayerChat = GUICtrlCreateCheckbox("Player Chat (\p - Player Nam
 GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T6_C_PlayerChatClick")
-Global $W1_T6_I_PlayerChat = GUICtrlCreateInput("", 494, 415, 380, 22)
+Global $W1_T6_I_PlayerChat = GUICtrlCreateInput("Input13", 494, 415, 380, 22)
 GUICtrlSetFont(-1, 8, 400, 0, "arial")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T6_I_PlayerChatChange")
@@ -24777,14 +24759,14 @@ Global $W1_T6_C_BackupStarted = GUICtrlCreateCheckbox("Backup Started", 30, 491,
 GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T6_C_BackupStartedClick")
-Global $W1_T6_I_BackupStarted = GUICtrlCreateInput("", 142, 488, 732, 22)
+Global $W1_T6_I_BackupStarted = GUICtrlCreateInput("Input13", 142, 488, 732, 22)
 GUICtrlSetFont(-1, 8, 400, 0, "arial")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T6_I_BackupStartedChange")
 Global $Label96 = GUICtrlCreateLabel("", 67, 384, 4, 4)
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "Label96Click")
-Global $W1_T6_I_OnlinePlayerSeparator = GUICtrlCreateInput("", 230, 380, 644, 22)
+Global $W1_T6_I_OnlinePlayerSeparator = GUICtrlCreateInput("Input13", 230, 380, 644, 22)
 GUICtrlSetFont(-1, 8, 400, 0, "arial")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T6_I_OnlinePlayerSeparatorChange")
@@ -24808,7 +24790,7 @@ Global $W1_T7_C_TwitchDaily = GUICtrlCreateCheckbox("Daily", 30, 133, 112, 17)
 GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T7_C_TwitchDailyClick")
-Global $W1_T7_I_TwitchDaily = GUICtrlCreateInput("", 145, 130, 728, 22)
+Global $W1_T7_I_TwitchDaily = GUICtrlCreateInput("Input13", 145, 130, 728, 22)
 GUICtrlSetFont(-1, 8, 400, 0, "arial")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T7_I_TwitchDailyChange")
@@ -24816,7 +24798,7 @@ Global $W1_T7_C_TwitchUpdate = GUICtrlCreateCheckbox("Update", 30, 162, 112, 17)
 GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T7_C_TwitchUpdateClick")
-Global $W1_T7_I_TwitchUpdate = GUICtrlCreateInput("", 145, 159, 728, 22)
+Global $W1_T7_I_TwitchUpdate = GUICtrlCreateInput("Input13", 145, 159, 728, 22)
 GUICtrlSetFont(-1, 8, 400, 0, "arial")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T7_I_TwitchUpdateChange")
@@ -24824,7 +24806,7 @@ Global $W1_T7_C_TwitchRemote = GUICtrlCreateCheckbox("Remote Restart", 30, 191, 
 GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T7_C_TwitchRemoteClick")
-Global $W1_T7_I_TwitchRemote = GUICtrlCreateInput("", 145, 188, 728, 22)
+Global $W1_T7_I_TwitchRemote = GUICtrlCreateInput("Input13", 145, 188, 728, 22)
 GUICtrlSetFont(-1, 8, 400, 0, "arial")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T7_I_TwitchRemoteChange")
@@ -24860,7 +24842,7 @@ Global $W1_T7_C_BackupStarted = GUICtrlCreateCheckbox("Backup Started", 32, 406,
 GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T7_C_BackupStartedClick")
-Global $W1_T7_I_TwitchBackStarted = GUICtrlCreateInput("", 147, 403, 728, 22)
+Global $W1_T7_I_TwitchBackStarted = GUICtrlCreateInput("Input13", 147, 403, 728, 22)
 GUICtrlSetFont(-1, 8, 400, 0, "arial")
 GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 GUICtrlSetOnEvent(-1, "W1_T7_I_TwitchBackStartedChange")
@@ -25356,26 +25338,6 @@ GUICtrlSetState($W1_T5_C_WHAllChat4, $GUI_CHECKED)
 Else
 GUICtrlSetState($W1_T5_C_WHAllChat4, $GUI_UNCHECKED)
 EndIf
-If StringInStr($aServerDiscordWHSelDie, "1") Then
-GUICtrlSetState($W1_T5_C_WHDie1, $GUI_CHECKED)
-Else
-GUICtrlSetState($W1_T5_C_WHDie1, $GUI_UNCHECKED)
-EndIf
-If StringInStr($aServerDiscordWHSelDie, "2") Then
-GUICtrlSetState($W1_T5_C_WHDie2, $GUI_CHECKED)
-Else
-GUICtrlSetState($W1_T5_C_WHDie2, $GUI_UNCHECKED)
-EndIf
-If StringInStr($aServerDiscordWHSelDie, "3") Then
-GUICtrlSetState($W1_T5_C_WHDie3, $GUI_CHECKED)
-Else
-GUICtrlSetState($W1_T5_C_WHDie3, $GUI_UNCHECKED)
-EndIf
-If StringInStr($aServerDiscordWHSelDie, "4") Then
-GUICtrlSetState($W1_T5_C_WHDie4, $GUI_CHECKED)
-Else
-GUICtrlSetState($W1_T5_C_WHDie4, $GUI_UNCHECKED)
-EndIf
 If StringInStr($aServerDiscordWHSelPlayers, "1") Then
 GUICtrlSetState($W1_T5_C_WHOnline1, $GUI_CHECKED)
 Else
@@ -25609,6 +25571,7 @@ EndFunc
 Func ConfigClose()
 If WinExists($wGUIMainWindow) Then
 GUIDelete($Config)
+If $tSplash > 0 Then $aSplash = _Splash($aUtilName & " started.")
 Else
 $aConfigWindowClose = True
 EndIf
