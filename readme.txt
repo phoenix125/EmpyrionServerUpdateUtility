@@ -1,5 +1,5 @@
 EmpyrionServerUpdateUtility - A Utility to Keep Your Empyrion Dedicated Server updated (and schedule server restarts, download and install new server files, and more!)
-- Latest version: EmpyrionServerUpdateUtility_v1.0.0 (2020-08-31) (Beta and Stable are the same version)
+- Latest version: EmpyrionServerUpdateUtility_v1.0.0 (2020-08-30) (Beta and Stable are the same version)
 - By Phoenix125 | http://www.Phoenix125.com | http://discord.gg/EU7pzPs | kim@kim125.com
 - Based on Dateranoth's ConanExilesServerUtility-3.3.0 and 7dServerUtility | https://gamercide.org/
 
@@ -84,9 +84,9 @@ Tips:
 ----------------
  DOWNLOAD LINKS
 ----------------
-Latest Version:       http://www.phoenix125.com/share/EmpyrionServerUpdateUtility.zip
-Previous Versions:    http://www.phoenix125.com/share/Empyrionhistory/
-Source Code (AutoIT): http://www.phoenix125.com/share/EmpyrionServerUpdateUtility.au3
+Latest Version:       http://www.phoenix125.com/share/empyrion/EmpyrionServerUpdateUtility.zip
+Previous Versions:    http://www.phoenix125.com/share/empyrion/empyrionhistory/
+Source Code (AutoIT): http://www.phoenix125.com/share/empyrion/EmpyrionServerUpdateUtility.au3
 GitHub:	              https://github.com/phoenix125/EmpyrionServerUpdateUtility
 
 Website: http://www.Phoenix125.com
@@ -132,7 +132,7 @@ In a standard web browser, type in the URL http://192.168.1.30:57520?restart=pas
 -----------------
  VERSION HISTORY
 -----------------
-(2020-08-31) v1.0.0 Initial Release
+(2020-08-30) v1.0.0 Initial Release
 - Works with Empyrion Admin Helper (EAH). Optionally closes EAH for updates then restarts it.
 - Easy to use and set up. Tray Icon menus only for simplicity yet full functionality.
 - Discord: Send server status, reboots, chats, players join or leave, selectively to 4 webhooks.
