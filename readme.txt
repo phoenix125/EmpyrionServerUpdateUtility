@@ -8,19 +8,18 @@ EmpyrionServerUpdateUtility - A Utility to Keep Your Empyrion Dedicated Server u
 ----------
 - Works with Empyrion Admin Helper (EAH). Optionally closes EAH for updates then restarts it.
 - Easy to use and set up. Tray Icon menus only for simplicity yet full functionality.
-- Discord: Send server status, chat messages, players join or leave.
+- Discord: Send server status, reboots, chats, players join or leave, selectively to 4 webhooks.
 - Backups. Partial and full server.
 - Keeps server updated and running.
 - Easily downloads, installs, and set up a new Dedicated Server.
 - Send telnet & chat messages with a click.
 - Announce server updates and/or restarts in game, on Discord and Twitch.
 - Works with all version: Public, Experimental, and custom.
-- KeepAlive Watchdog: Restarts frozen servers and EAH. Monitors for process, valid telenet, and query responses.
+- KeepAlive Watchdog: Restarts "stuck" servers and EAH. 3 methods of detection: Running process PID, query port, and telnet.
 - Scheduled restarts.
-- Remote restart (via web browser).
+- Remote Restart: Reboot the server using any web browser.
 - Run multiple instances to manage multiple servers.
 - Detailed logs.
-- Watchdog: restart server on excessive memory use.
 More detailed features:
 - Optionally execute external files for six unique conditions, including at updates, scheduled restarts, remote restart, when first restart notice is announced
   *These options are great executing a batch file to disable certain mods during a server update, to run custom announcement scripts, make config changes (enable PVP at scheduled times), etc.
@@ -133,19 +132,18 @@ In a standard web browser, type in the URL http://192.168.1.30:57520?restart=pas
 -----------------
  VERSION HISTORY
 -----------------
-(2020-08-31) Initial Release
+(2020-08-31) v1.0.0 Initial Release
 - Works with Empyrion Admin Helper (EAH). Optionally closes EAH for updates then restarts it.
 - Easy to use and set up. Tray Icon menus only for simplicity yet full functionality.
-- Discord: Send server status, chat messages, players join or leave.
+- Discord: Send server status, reboots, chats, players join or leave, selectively to 4 webhooks.
 - Backups. Partial and full server.
 - Keeps server updated and running.
 - Easily downloads, installs, and set up a new Dedicated Server.
 - Send telnet & chat messages with a click.
 - Announce server updates and/or restarts in game, on Discord and Twitch.
 - Works with all version: Public, Experimental, and custom.
-- KeepAlive Watchdog: Restarts frozen servers and EAH. Monitors for process, valid telenet, and query responses.
+- KeepAlive Watchdog: Restarts "stuck" servers and EAH. 3 methods of detection: Running process PID, query port, and telnet.
 - Scheduled restarts.
-- Remote restart (via web browser).
+- Remote Restart: Reboot the server using any web browser.
 - Run multiple instances to manage multiple servers.
 - Detailed logs.
-- Watchdog: restart server on excessive memory use.
