@@ -1,5 +1,5 @@
 EmpyrionServerUpdateUtility - A Utility to Keep Your Empyrion Dedicated Server updated (and schedule server restarts, download and install new server files, and more!)
-- Latest version: EmpyrionServerUpdateUtility_v1.0.1 (2020-09-01) (Beta and Stable are the same version)
+- Latest version: EmpyrionServerUpdateUtility_v1.0.2 (2020-09-02) (Beta and Stable are the same version)
 - By Phoenix125 | http://www.Phoenix125.com | http://discord.gg/EU7pzPs | kim@kim125.com
 - Based on Dateranoth's ConanExilesServerUtility-3.3.0 and 7dServerUtility | https://gamercide.org/
 
@@ -132,6 +132,11 @@ In a standard web browser, type in the URL http://192.168.1.30:57520?restart=pas
 -----------------
  VERSION HISTORY
 -----------------
+(2020-09-02) v1.0.2 Bug Fixes
+- Fixed: Program would eventually crash during server restarts due to plink starting loop.
+- Fixed: Line 22587 error
+- Fixed: Log now correctly logs imported SaveDirectory
+
 (2020-09-01) v1.0.1 Line 20383 Backup Bug Fix
 - Fixed: Backups caused line 20383 error
 
