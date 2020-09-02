@@ -1,11 +1,11 @@
 #Region ;**** Directives created by AutoIt3Wrapper_GUI ****
 #AutoIt3Wrapper_Icon=Resources\phoenixtray.ico
-#AutoIt3Wrapper_Outfile=Builds\EmpyrionServerUpdateUtility_v1.0.0.exe
+#AutoIt3Wrapper_Outfile=Builds\EmpyrionServerUpdateUtility_v1.0.1.exe
 #AutoIt3Wrapper_Res_Comment=By Phoenix125 based on Dateranoth's ConanServerUtility v3.3.0-Beta.3
 #AutoIt3Wrapper_Res_Description=Empyrion Dedicated Server Update Utility
-#AutoIt3Wrapper_Res_Fileversion=1.0.0
+#AutoIt3Wrapper_Res_Fileversion=1.0.1
 #AutoIt3Wrapper_Res_ProductName=EmpyrionServerUpdateUtility
-#AutoIt3Wrapper_Res_ProductVersion=1.0.0
+#AutoIt3Wrapper_Res_ProductVersion=1.0.1
 #AutoIt3Wrapper_Res_CompanyName=http://www.Phoenix125.com
 #AutoIt3Wrapper_Res_LegalCopyright=http://www.Phoenix125.com
 #AutoIt3Wrapper_Res_Language=1033
@@ -45,11 +45,11 @@ Opt("GUIResizeMode", $GUI_DOCKLEFT + $GUI_DOCKTOP)
 
 ; *** End added by AutoIt3Wrapper ***
 
-$aUtilVerStable = "v1.0.0" ; (2020-08-31)
-$aUtilVerBeta = "v1.0.0" ; (2020-08-31)
+$aUtilVerStable = "v1.0.1" ; (2020-09-01)
+$aUtilVerBeta = "v1.0.1" ; (2020-09-01)
 $aUtilVersion = $aUtilVerStable
 Global $aUtilVerNumber = 0
-; 0 = v0.1.0
+; 0 = v1.0.0/1
 
 ;**** Directives created by AutoIt3Wrapper_GUI ****
 ;Originally written by Dateranoth for use and modified for Empyrion by Phoenix125.com
@@ -193,10 +193,11 @@ Global $aServerPort = 0
 Global $aTelnetPort = 0
 Global $aServerName = ""
 Global $aTelnetPass = "Phoenix125bc123"
-$aServerUpdateLinkVerStable = "http://www.phoenix125.com/share/" & $aGameName & "latestver.txt"
-$aServerUpdateLinkVerBeta = "http://www.phoenix125.com/share/" & $aGameName & "latestbeta.txt"
-$aServerUpdateLinkDLStable = "http://www.phoenix125.com/share/" & $aGameName & "ServerUpdateUtility.zip"
-$aServerUpdateLinkDLBeta = "http://www.phoenix125.com/share/" & $aGameName & "ServerUpdateUtilityBeta.zip"
+Global $aServerSaveGame = ""
+$aServerUpdateLinkVerStable = "http://www.phoenix125.com/share/" & StringLower($aGameName) & "/" & StringLower($aGameName) & "latestver.txt"
+$aServerUpdateLinkVerBeta = "http://www.phoenix125.com/share/" & StringLower($aGameName) & "/" & StringLower($aGameName) & "latestbeta.txt"
+$aServerUpdateLinkDLStable = "http://www.phoenix125.com/share/" & StringLower($aGameName) & "/" & $aGameName & "ServerUpdateUtility.zip"
+$aServerUpdateLinkDLBeta = "http://www.phoenix125.com/share/" & StringLower($aGameName) & "/" & $aGameName & "ServerUpdateUtilityBeta.zip"
 Global $aShowUpdate = False
 Global $aTelnetIP, $aTelnetPort, $aTelnetPass
 Global $aPlayerCountErr = False
@@ -511,7 +512,7 @@ While True ;**** Loop Until Closed ****
 				Else
 					Local $tExtraCMD = ""
 				EndIf
-				Local $tRun = '"' & $aServerDirLocal & "\" & $aServerEXE & '" ' & $aLaunchParams & ' ' & $tExtraCMD & $aConfigFile ;kim125er
+				Local $tRun = '"' & $aServerDirLocal & "\" & $aServerEXE & '" ' & $aLaunchParams & ' ' & $tExtraCMD & $aConfigFile
 				PurgeLogFile()
 ;~ 				_ImportServerConfig()
 				Local $tPID = _CheckIfProcessRunning($aServerProcessName, $aServerDirLocal & "\DedicatedServer\")
@@ -520,7 +521,7 @@ While True ;**** Loop Until Closed ****
 					LogWrite(" [Server] Server PID (" & $aServerPID & ") found via Auto Detect.")
 					_Splash("Running server found. PID:" & $aServerPID, 2500)
 				Else
-					$aServerPID = Run($tRun, $aServerDirLocal, @SW_HIDE) ;kim125
+					$aServerPID = Run($tRun, $aServerDirLocal, @SW_HIDE)
 					LogWrite(" [Server] **** Server Started **** PID(" & $aServerPID & ")", " [Server] **** Server Started **** PID(" & $aServerPID & ") [" & $tRun & "]")
 					$gWatchdogServerStartTimeCheck = _NowCalc()
 					IniWrite($aUtilCFGFile, "CFG", "Last Server Start", $gWatchdogServerStartTimeCheck)
@@ -533,7 +534,7 @@ While True ;**** Loop Until Closed ****
 						ControlSetText($aSplash, "", "Static1", "Server launcher started." & @CRLF & @CRLF & "Server found. PID:" & $aServerPID)
 						Sleep(4000)
 					Else
-						$aServerPID = Run($tRun, $aServerDirLocal, @SW_HIDE) ;kim125
+						$aServerPID = Run($tRun, $aServerDirLocal, @SW_HIDE)
 						LogWrite(" [Server] **** Server Started **** PID(" & $aServerPID & ")", " [Server] **** Server Started **** PID(" & $aServerPID & ") [" & $tRun & "]")
 						$gWatchdogServerStartTimeCheck = _NowCalc()
 						IniWrite($aUtilCFGFile, "CFG", "Last Server Start", $gWatchdogServerStartTimeCheck)
@@ -717,7 +718,7 @@ While True ;**** Loop Until Closed ****
 		#Region ;**** Show Online Players ****
 		If $aServerOnlinePlayerYN = "yes" Then
 			If ((_DateDiff('s', $aTimeCheck8, _NowCalc())) >= $aServerOnlinePlayerSec) Then
-				_PlayersOnlineCheck() ;kim125er
+				_PlayersOnlineCheck()
 				$aTimeCheck8 = _NowCalc()
 			EndIf
 		EndIf
@@ -1373,7 +1374,7 @@ Func _BackupGame($tMinimizeTF = True, $tFullTF = False, $tRunWait = False)
 	$tCount += 1
 	If $aBackupSendDiscordYN = "yes" Then _SendDiscordStatus($aBackupDiscord)
 	If $aBackupSendTwitchYN = "yes" Then TwitchMsgLog($aBackupTwitch)
-	_DownloadAndExtractFile("7z", "http://phoenix125.com/share/" & $aGameName & "share/7z.zip", "https://github.com/phoenix125/" & $aUtilName & "/releases/download/LatestVersion/7z.zip", 0, $aFolderTemp, "7z.dll")
+	_DownloadAndExtractFile("7z", "http://phoenix125.com/share/7zip/7z.zip", "https://github.com/phoenix125/dependencies/releases/download/release/7z.zip", 0, $aFolderTemp, "7z.dll")
 	Local $tTime = @YEAR & "-" & @MON & "-" & @MDAY & "_" & @HOUR & "-" & @MIN
 	Local $tName = $aGameName & "_Backup_" & $tTime & ".zip"
 	Local $tFull = $aBackupOutputFolder & "\" & $tName
@@ -1728,7 +1729,7 @@ Func SendDiscordMsg($sHookURL, $sBotMessage, $sBotName = "", $sBotTTS = False, $
 			$sBotMessage = StringReplace($sBotMessage, "```", "")
 			$sBotMessage = StringReplace($sBotMessage, "> ", "")
 			$sBotMessage = StringReplace($sBotMessage, "\n", " | ")
-			If FileExists($aDiscordSendWebhookEXE) = 0 Then _DownloadAndExtractFile("DiscordSendWebhook", "http://www.phoenix125.com/share/atlas/DiscordSendWebhook.zip", "https://github.com/phoenix125/DiscordSendWebhook/releases/download/DiscordSendWebhook/DiscordSendWebhook.zip", $aSplash)
+			If FileExists($aDiscordSendWebhookEXE) = 0 Then _DownloadAndExtractFile("DiscordSendWebhook", "http://www.phoenix125.com/share/discordsendwebhook/DiscordSendWebhook.zip", "https://github.com/phoenix125/DiscordSendWebhook/releases/download/DiscordSendWebhook/DiscordSendWebhook.zip", $aSplash)
 			Local $tFile = $aFolderTemp & "DiscordResponse.txt"
 			FileDelete($tFile)
 			Local $tCmd = @ComSpec & ' /c ' & '""' & $aDiscordSendWebhookEXE & '" "' & $sHookURL & '" "' & $sBotMessage & '" "' & $sBotName & '"' & ' > "' & $tFile & '"'
@@ -2430,32 +2431,6 @@ EndFunc   ;==>_ExtractZip
 #EndRegion ;**** UnZip Function by trancexx ****
 
 ; -----------------------------------------------------------------------------------------------------------------------
-
-;===============================================================================
-;
-; Name...........: _RemoteRestart
-; Description ...: Receives TCP string from GET request and checks against list of known passwords.
-;				   Expects GET /?restart=user_pass HTTP/x.x
-; Syntax.........: RemoteRestart($vMSocket, $sCodes, [$sKey = "restart", $sHideCodes = "no", [$sServIP = "0.0.0.0", [$sName = "Server", [$bDebug = False]]]]])
-; Parameters ....: $vMSocket - Main Socket to Accept TCP Requests on. Should already be open from TCPListen
-;                  $sCodes - Comma Seperated list of user1_password1,user2_password2,password3
-;							 Allowed Characters: abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@$%^&*()+=-{}[]\|:;./?
-;				   $sKey - Key to match before matching password. http://IP:Pass?KEY=user_pass
-;                  $sHideCodes - Obfuscate codes or not, (yes/no) string
-;                  $sServIP - IP  to send back in Header Response.
-;				   $sName - Server Name to use in HTML Response.
-;				   $sDebug - True to return Full TCP Request when Request is invalid
-; Return values .: Success - Returns String
-;                          - Sets @error to 0
-;				   No Connection - Sets @ error to -1
-;                  Failure - Returns Descriptive String sets @error:
-;                  |1 - Password doesn't match
-;                  |2 - Invalid Request
-;                  |3 - CheckHTTPReq Failed - Returns error in string
-;                  |4 - TCPRecv Failed - Returns error in string
-; Author ........: Dateranoth
-;
-;==========================================================================================
 #Region ;**** Check for Server Utility Update ****
 Func UtilUpdate($tLink, $tDL, $tUtil, $tUtilName)
 	$aSplash = _Splash($aUtilName & " " & $aUtilVersion & " started." & @CRLF & @CRLF & "Checking for " & $tUtilName & " updates.")
@@ -2508,6 +2483,7 @@ Func UtilUpdate($tLink, $tDL, $tUtil, $tUtilName)
 					LogWrite(" [UTIL] ERROR! " & $tUtilName & ".exe download failed.")
 					SplashOff()
 					$tMB = MsgBox($MB_OKCANCEL, $aUtilityVer, "Download failed . . . " & @CRLF & "Go to """ & $tLink & """ to download latest version." & @CRLF & @CRLF & "Click (OK), (CANCEL), or wait 15 seconds, to resume current version.", 15)
+					$aSplash = _Splash("")
 				Else
 					SplashOff()
 					$tMB = MsgBox($MB_OKCANCEL, $aUtilityVer, "Download complete. . . " & @CRLF & @CRLF & "Click (OK) to run new version (server will remain running) OR" & @CRLF & "Click (CANCEL), or wait 15 seconds, to resume current version.", 15)
@@ -2530,7 +2506,6 @@ Func UtilUpdate($tLink, $tDL, $tUtil, $tUtilName)
 				LogWrite(" [UTIL] Utility update check canceled by user. Resuming utility . . .")
 				$aSplash = _Splash("Utility update check canceled by user." & @CRLF & "Resuming utility . . .", 2000)
 			EndIf
-			SplashOff()
 		EndIf
 		;	Local $tVer[2]
 	EndIf
@@ -2660,7 +2635,6 @@ Func _ShowLoginLogo()
 		Local $Pic, $hImage, $hBmp, $iW, $iH
 		_GDIPlus_Startup()
 		$hImage = _GDIPlus_ImageLoadFromFile($aFolderTemp & $aGameName & "LogoPx.png")
-;~ 		MsgBox(0,"Kim",$aFolderTemp & $aGameName & "LogoPx.png" & @CRLF & FileExists($aFolderTemp & $aGameName & "LogoPx.png")) ;kim125er
 		$iW = _GDIPlus_ImageGetWidth($hImage)
 		$iH = _GDIPlus_ImageGetHeight($hImage)
 		$hBitmap = _GDIPlus_BitmapCloneArea($hImage, 0, 0, $iW, $iH, $GDIP_PXF32ARGB)
@@ -4473,6 +4447,22 @@ Func _ImportServerConfig()
 			EndIf
 			LogWrite(" [Config] . . . Imported Srv_Name:" & $aServerName)
 		EndIf
+		If StringInStr($tFileReadArray[$i], "SaveDirectory:") Then
+			If StringInStr($tFileReadArray[$i], "# SaveDirectory:") Then
+				$aServerSaveGame = $aServerDirLocal & "\Saves"
+;~ 				$tChangesTF = True
+;~ 				$tFileReadArray[$i] = StringReplace($tFileReadArray[$i], "# SaveDirectory:", "SaveDirectory:")
+;~ 				$tTxt &= "Error! Server Name was disabled and is now enabled in " & $aConfigFile & @CRLF
+			EndIf
+			If $tSplit[0] > 1 Then
+				$tSplit[2] = StringTrimLeft($tSplit[2], 1)
+				$aServerSaveGame = $aServerDirLocal & "\" & $tSplit[2]
+			Else
+				$aServerSaveGame = $aServerDirLocal & "\Saves"
+				$tTxt &= "Error importing Server Name from " & $aConfigFile & @CRLF
+			EndIf
+			LogWrite(" [Config] . . . Imported Srv_Name:" & $aServerName)
+		EndIf
 		If StringInStr($tFileReadArray[$i], "Tel_Enabled:") Then
 			If StringInStr($tFileReadArray[$i], "# Tel_Enabled:") Then
 				$tChangesTF = True
@@ -4702,7 +4692,7 @@ Func GetPlayerCount($tSplash)
 		TraySetToolTip(@ScriptName)
 		TraySetIcon(@ScriptName, 99)
 		$tPlayersBeforeString = IniRead($aUtilCFGFile, "CFG", "Players Name", "")
-		If ($tPlayersBeforeString <> $aPlayersOnlineName) Then ;kim125er!
+		If ($tPlayersBeforeString <> $aPlayersOnlineName) Then
 			Local $tPlayersBeforeArray = StringSplit($tPlayersBeforeString, Chr(238), 2)
 			Local $tPlayersAfterArray = StringSplit($aPlayersOnlineName, Chr(238), 2)
 			$tTempArray = _ArrayCompare($tPlayersBeforeArray, $tPlayersAfterArray)
@@ -4747,7 +4737,6 @@ Func TelnetOnlinePlayers($ip, $port, $pwd)
 	$tErr = False
 	$tRead1 = _PlinkSend($aTelnetPlayersCMD)
 	Local $tArray3 = StringSplit($tRead1, @CRLF)
-;~ 	_ArrayDisplay($tArray3, "Line 4738") ;kim125er
 	If IsArray($tArray3) Then
 		For $t1 = 1 To ($tArray3[0] - 1)
 			If StringInStr($tArray3[$t1], "Players connected (") Then
@@ -4756,16 +4745,11 @@ Func TelnetOnlinePlayers($ip, $port, $pwd)
 			EndIf
 		Next
 	EndIf
-;~ 	MsgBox(0,"Kim >0", $sReturn[0] & ":" & $tArray3[0]) ;kim125er!
 	Local $tDone = False
 	If $sReturn[0] > 0 Then
 		For $t1 = 1 To ($tArray3[0] - 1)
-;~ 			_Splash($t1 & ":" & $tArray3[$t1], 300) ;kim125er!
 			If StringInStr($tArray3[$t1], "Global online players list:") Then
-;~ 				MsgBox(0,"Kim Global", $tArray3[$t1]) ;kim125er!
 				For $t2 = ($t1 + 1) To ($tArray3[0] - 1)
-;~ 					_Splash($t2 & ":" & $tArray3[$t2], 300) ;kim125er!
-;~ 					If StringInStr($tArray3[$t2], "name=") Then MsgBox(0,"Kim",_ArrayToString(_StringBetween($tArray3[$t2], "name=", " fac="))) ;kim125er
 					If StringInStr($tArray3[$t2], "name=") Then _ArrayAdd($sReturn, _ArrayToString(_StringBetween($tArray3[$t2], "name=", " fac=")))
 					If StringInStr($tArray3[$t2], "Global players list") Then
 						$tDone = True
@@ -5049,7 +5033,7 @@ EndFunc   ;==>_ArrayCompare
 Func _PlinkConnect($tIP, $tPort, $tPwd, $tLog012 = 2, $tSkipVerifyTF = False) ; $tLog0123: 0 = no log, 1 = Detailed log only, 2 = Both logs
 	Local $sReturn = -1
 	Local $kReturn = ""
-	_DownloadAndExtractFile("plink", "http://www.phoenix125.com/share/plink/plink.zip", "https://github.com/phoenix125/" & $aUtilName & "/releases/download/LatestVersion/plink.zip", $aSplash, $aFolderTemp)
+	_DownloadAndExtractFile("plink", "http://www.phoenix125.com/share/plink/plink.zip", "https://github.com/phoenix125/dependencies/releases/download/release/plink.zip", $aSplash, $aFolderTemp)
 	Local $tPID = _CheckForExistingPlink()
 	If $tPID > 0 Then
 		Local $sReturn = $tPID
@@ -5217,7 +5201,7 @@ Func _GetPlayerNamesIDsFromLog($tID)
 	Global $xPlayerName[1]
 	Global $xPlayerSteamID[1]
 	For $i = 0 To (UBound($tReadArray) - 1)
-		If StringInStr($tReadArray[$i], "Got player id:") Then ;kim125er
+		If StringInStr($tReadArray[$i], "Got player id:") Then
 			_ArrayAdd($xPlayerID, Number(_ArrayToString(_StringBetween($tReadArray[$i], "EId=", ","))))
 			_ArrayAdd($xPlayerName, _ArrayToString(_StringBetween($tReadArray[$i], "'", "'")))
 			_ArrayAdd($xPlayerSteamID, Number(_ArrayToString(_StringBetween($tReadArray[$i], ", ", "/"))))

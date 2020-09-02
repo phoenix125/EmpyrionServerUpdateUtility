@@ -1,11 +1,11 @@
 #Region ;**** Directives created by AutoIt3Wrapper_GUI ****
 #AutoIt3Wrapper_Icon=Resources\phoenixtray.ico
-#AutoIt3Wrapper_Outfile=Builds\EmpyrionServerUpdateUtility_v1.0.0.exe
+#AutoIt3Wrapper_Outfile=Builds\EmpyrionServerUpdateUtility_v1.0.1.exe
 #AutoIt3Wrapper_Res_Comment=By Phoenix125 based on Dateranoth's ConanServerUtility v3.3.0-Beta.3
 #AutoIt3Wrapper_Res_Description=Empyrion Dedicated Server Update Utility
-#AutoIt3Wrapper_Res_Fileversion=1.0.0
+#AutoIt3Wrapper_Res_Fileversion=1.0.1
 #AutoIt3Wrapper_Res_ProductName=EmpyrionServerUpdateUtility
-#AutoIt3Wrapper_Res_ProductVersion=1.0.0
+#AutoIt3Wrapper_Res_ProductVersion=1.0.1
 #AutoIt3Wrapper_Res_CompanyName=http://www.Phoenix125.com
 #AutoIt3Wrapper_Res_LegalCopyright=http://www.Phoenix125.com
 #AutoIt3Wrapper_Res_Language=1033
@@ -45,11 +45,11 @@ Opt("GUIResizeMode", $GUI_DOCKLEFT + $GUI_DOCKTOP)
 
 ; *** End added by AutoIt3Wrapper ***
 
-$aUtilVerStable = "v0.1.0" ; (2020-08-21)
-$aUtilVerBeta = "v0.1.0" ; (2020-08-21)
+$aUtilVerStable = "v1.0.1" ; (2020-09-01)
+$aUtilVerBeta = "v1.0.1" ; (2020-09-01)
 $aUtilVersion = $aUtilVerStable
 Global $aUtilVerNumber = 0
-; 0 = v0.1.0
+; 0 = v1.0.0/1
 
 ;**** Directives created by AutoIt3Wrapper_GUI ****
 ;Originally written by Dateranoth for use and modified for Empyrion by Phoenix125.com
@@ -188,14 +188,16 @@ Global $aFPCount = 0
 Global $aFPClock = _NowCalc()
 Global $aMaxPlayers = 0
 Global $aUpdateSource = "0" ; 0 = SteamCMD , 1 = SteamDB.com
+Global $aServerPID = 0
 Global $aServerPort = 0
 Global $aTelnetPort = 0
 Global $aServerName = ""
 Global $aTelnetPass = "Phoenix125bc123"
-$aServerUpdateLinkVerStable = "http://www.phoenix125.com/share/" & $aGameName & "latestver.txt"
-$aServerUpdateLinkVerBeta = "http://www.phoenix125.com/share/" & $aGameName & "latestbeta.txt"
-$aServerUpdateLinkDLStable = "http://www.phoenix125.com/share/" & $aGameName & "ServerUpdateUtility.zip"
-$aServerUpdateLinkDLBeta = "http://www.phoenix125.com/share/" & $aGameName & "ServerUpdateUtilityBeta.zip"
+Global $aServerSaveGame = ""
+$aServerUpdateLinkVerStable = "http://www.phoenix125.com/share/" & StringLower($aGameName) & "/" & StringLower($aGameName) & "latestver.txt"
+$aServerUpdateLinkVerBeta = "http://www.phoenix125.com/share/" & StringLower($aGameName) & "/" & StringLower($aGameName) & "latestbeta.txt"
+$aServerUpdateLinkDLStable = "http://www.phoenix125.com/share/" & StringLower($aGameName) & "/" & $aGameName & "ServerUpdateUtility.zip"
+$aServerUpdateLinkDLBeta = "http://www.phoenix125.com/share/" & StringLower($aGameName) & "/" & $aGameName & "ServerUpdateUtilityBeta.zip"
 Global $aShowUpdate = False
 Global $aTelnetIP, $aTelnetPort, $aTelnetPass
 Global $aPlayerCountErr = False
@@ -290,8 +292,9 @@ If $sFileExists = 0 Then
 			"This is normal for New Install" & @CRLF & "Do you wish to continue with installation?" & @CRLF & "(YES) Continue with installation" & @CRLF & "(NO) Open Config Window", 60)
 	If $tMsg = 7 Then
 		LogWrite("!!! ERROR !!! Could not find " & $sConfigPath & ". Config Window opened.")
-		GUI_Config()
+		GUI_Config(False, $aSplash)
 	Else
+		$aSplash = _Splash($aUtilName & " started.")
 	EndIf
 EndIf
 Global $aServerTelnetReboot = "no"
@@ -509,7 +512,7 @@ While True ;**** Loop Until Closed ****
 				Else
 					Local $tExtraCMD = ""
 				EndIf
-				Local $tRun = '"' & $aServerDirLocal & "\" & $aServerEXE & '" ' & $aLaunchParams & ' ' & $tExtraCMD & $aConfigFile ;kim125er
+				Local $tRun = '"' & $aServerDirLocal & "\" & $aServerEXE & '" ' & $aLaunchParams & ' ' & $tExtraCMD & $aConfigFile
 				PurgeLogFile()
 ;~ 				_ImportServerConfig()
 				Local $tPID = _CheckIfProcessRunning($aServerProcessName, $aServerDirLocal & "\DedicatedServer\")
@@ -518,7 +521,7 @@ While True ;**** Loop Until Closed ****
 					LogWrite(" [Server] Server PID (" & $aServerPID & ") found via Auto Detect.")
 					_Splash("Running server found. PID:" & $aServerPID, 2500)
 				Else
-					$aServerPID = Run($tRun, $aServerDirLocal, @SW_HIDE) ;kim125
+					$aServerPID = Run($tRun, $aServerDirLocal, @SW_HIDE)
 					LogWrite(" [Server] **** Server Started **** PID(" & $aServerPID & ")", " [Server] **** Server Started **** PID(" & $aServerPID & ") [" & $tRun & "]")
 					$gWatchdogServerStartTimeCheck = _NowCalc()
 					IniWrite($aUtilCFGFile, "CFG", "Last Server Start", $gWatchdogServerStartTimeCheck)
@@ -531,7 +534,7 @@ While True ;**** Loop Until Closed ****
 						ControlSetText($aSplash, "", "Static1", "Server launcher started." & @CRLF & @CRLF & "Server found. PID:" & $aServerPID)
 						Sleep(4000)
 					Else
-						$aServerPID = Run($tRun, $aServerDirLocal, @SW_HIDE) ;kim125
+						$aServerPID = Run($tRun, $aServerDirLocal, @SW_HIDE)
 						LogWrite(" [Server] **** Server Started **** PID(" & $aServerPID & ")", " [Server] **** Server Started **** PID(" & $aServerPID & ") [" & $tRun & "]")
 						$gWatchdogServerStartTimeCheck = _NowCalc()
 						IniWrite($aUtilCFGFile, "CFG", "Last Server Start", $gWatchdogServerStartTimeCheck)
@@ -715,7 +718,7 @@ While True ;**** Loop Until Closed ****
 		#Region ;**** Show Online Players ****
 		If $aServerOnlinePlayerYN = "yes" Then
 			If ((_DateDiff('s', $aTimeCheck8, _NowCalc())) >= $aServerOnlinePlayerSec) Then
-				_PlayersOnlineCheck() ;kim125er
+				_PlayersOnlineCheck()
 				$aTimeCheck8 = _NowCalc()
 			EndIf
 		EndIf
@@ -1371,7 +1374,7 @@ Func _BackupGame($tMinimizeTF = True, $tFullTF = False, $tRunWait = False)
 	$tCount += 1
 	If $aBackupSendDiscordYN = "yes" Then _SendDiscordStatus($aBackupDiscord)
 	If $aBackupSendTwitchYN = "yes" Then TwitchMsgLog($aBackupTwitch)
-	_DownloadAndExtractFile("7z", "http://phoenix125.com/share/" & $aGameName & "share/7z.zip", "https://github.com/phoenix125/" & $aUtilName & "/releases/download/LatestVersion/7z.zip", 0, $aFolderTemp, "7z.dll")
+	_DownloadAndExtractFile("7z", "http://phoenix125.com/share/7zip/7z.zip", "https://github.com/phoenix125/dependencies/releases/download/release/7z.zip", 0, $aFolderTemp, "7z.dll")
 	Local $tTime = @YEAR & "-" & @MON & "-" & @MDAY & "_" & @HOUR & "-" & @MIN
 	Local $tName = $aGameName & "_Backup_" & $tTime & ".zip"
 	Local $tFull = $aBackupOutputFolder & "\" & $tName
@@ -1662,7 +1665,7 @@ Func CloseServer($ip, $port, $pass, $tNoSplashOff = "no")
 	If $aSteamUpdateNow Then SteamUpdate()
 	$aRebootConfigUpdate = "no"
 EndFunc   ;==>CloseServer
-#EndRegion ;**** Close Server ****
+#EndRegion 	 ;**** Close Server ****
 
 ; -----------------------------------------------------------------------------------------------------------------------
 
@@ -1726,7 +1729,7 @@ Func SendDiscordMsg($sHookURL, $sBotMessage, $sBotName = "", $sBotTTS = False, $
 			$sBotMessage = StringReplace($sBotMessage, "```", "")
 			$sBotMessage = StringReplace($sBotMessage, "> ", "")
 			$sBotMessage = StringReplace($sBotMessage, "\n", " | ")
-			If FileExists($aDiscordSendWebhookEXE) = 0 Then _DownloadAndExtractFile("DiscordSendWebhook", "http://www.phoenix125.com/share/atlas/DiscordSendWebhook.zip", "https://github.com/phoenix125/DiscordSendWebhook/releases/download/DiscordSendWebhook/DiscordSendWebhook.zip", $aSplash)
+			If FileExists($aDiscordSendWebhookEXE) = 0 Then _DownloadAndExtractFile("DiscordSendWebhook", "http://www.phoenix125.com/share/discordsendwebhook/DiscordSendWebhook.zip", "https://github.com/phoenix125/DiscordSendWebhook/releases/download/DiscordSendWebhook/DiscordSendWebhook.zip", $aSplash)
 			Local $tFile = $aFolderTemp & "DiscordResponse.txt"
 			FileDelete($tFile)
 			Local $tCmd = @ComSpec & ' /c ' & '""' & $aDiscordSendWebhookEXE & '" "' & $sHookURL & '" "' & $sBotMessage & '" "' & $sBotName & '"' & ' > "' & $tFile & '"'
@@ -1882,7 +1885,7 @@ Func DailyRestartCheck($sWDays, $sHours, $sMin)
 	Return False
 EndFunc   ;==>DailyRestartCheck
 
-#EndRegion ;**** Restart Server Scheduling Scripts ****
+#EndRegion	 ;**** Restart Server Scheduling Scripts ****
 
 Func RunExternalScriptDaily()
 	If $aExternalScriptDailyYN = "yes" Then
@@ -2428,32 +2431,6 @@ EndFunc   ;==>_ExtractZip
 #EndRegion ;**** UnZip Function by trancexx ****
 
 ; -----------------------------------------------------------------------------------------------------------------------
-
-;===============================================================================
-;
-; Name...........: _RemoteRestart
-; Description ...: Receives TCP string from GET request and checks against list of known passwords.
-;				   Expects GET /?restart=user_pass HTTP/x.x
-; Syntax.........: RemoteRestart($vMSocket, $sCodes, [$sKey = "restart", $sHideCodes = "no", [$sServIP = "0.0.0.0", [$sName = "Server", [$bDebug = False]]]]])
-; Parameters ....: $vMSocket - Main Socket to Accept TCP Requests on. Should already be open from TCPListen
-;                  $sCodes - Comma Seperated list of user1_password1,user2_password2,password3
-;							 Allowed Characters: abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@$%^&*()+=-{}[]\|:;./?
-;				   $sKey - Key to match before matching password. http://IP:Pass?KEY=user_pass
-;                  $sHideCodes - Obfuscate codes or not, (yes/no) string
-;                  $sServIP - IP  to send back in Header Response.
-;				   $sName - Server Name to use in HTML Response.
-;				   $sDebug - True to return Full TCP Request when Request is invalid
-; Return values .: Success - Returns String
-;                          - Sets @error to 0
-;				   No Connection - Sets @ error to -1
-;                  Failure - Returns Descriptive String sets @error:
-;                  |1 - Password doesn't match
-;                  |2 - Invalid Request
-;                  |3 - CheckHTTPReq Failed - Returns error in string
-;                  |4 - TCPRecv Failed - Returns error in string
-; Author ........: Dateranoth
-;
-;==========================================================================================
 #Region ;**** Check for Server Utility Update ****
 Func UtilUpdate($tLink, $tDL, $tUtil, $tUtilName)
 	$aSplash = _Splash($aUtilName & " " & $aUtilVersion & " started." & @CRLF & @CRLF & "Checking for " & $tUtilName & " updates.")
@@ -2506,6 +2483,7 @@ Func UtilUpdate($tLink, $tDL, $tUtil, $tUtilName)
 					LogWrite(" [UTIL] ERROR! " & $tUtilName & ".exe download failed.")
 					SplashOff()
 					$tMB = MsgBox($MB_OKCANCEL, $aUtilityVer, "Download failed . . . " & @CRLF & "Go to """ & $tLink & """ to download latest version." & @CRLF & @CRLF & "Click (OK), (CANCEL), or wait 15 seconds, to resume current version.", 15)
+					$aSplash = _Splash("")
 				Else
 					SplashOff()
 					$tMB = MsgBox($MB_OKCANCEL, $aUtilityVer, "Download complete. . . " & @CRLF & @CRLF & "Click (OK) to run new version (server will remain running) OR" & @CRLF & "Click (CANCEL), or wait 15 seconds, to resume current version.", 15)
@@ -2528,7 +2506,6 @@ Func UtilUpdate($tLink, $tDL, $tUtil, $tUtilName)
 				LogWrite(" [UTIL] Utility update check canceled by user. Resuming utility . . .")
 				$aSplash = _Splash("Utility update check canceled by user." & @CRLF & "Resuming utility . . .", 2000)
 			EndIf
-			SplashOff()
 		EndIf
 		;	Local $tVer[2]
 	EndIf
@@ -2658,7 +2635,6 @@ Func _ShowLoginLogo()
 		Local $Pic, $hImage, $hBmp, $iW, $iH
 		_GDIPlus_Startup()
 		$hImage = _GDIPlus_ImageLoadFromFile($aFolderTemp & $aGameName & "LogoPx.png")
-;~ 		MsgBox(0,"Kim",$aFolderTemp & $aGameName & "LogoPx.png" & @CRLF & FileExists($aFolderTemp & $aGameName & "LogoPx.png")) ;kim125er
 		$iW = _GDIPlus_ImageGetWidth($hImage)
 		$iH = _GDIPlus_ImageGetHeight($hImage)
 		$hBitmap = _GDIPlus_BitmapCloneArea($hImage, 0, 0, $iW, $iH, $GDIP_PXF32ARGB)
@@ -4471,6 +4447,22 @@ Func _ImportServerConfig()
 			EndIf
 			LogWrite(" [Config] . . . Imported Srv_Name:" & $aServerName)
 		EndIf
+		If StringInStr($tFileReadArray[$i], "SaveDirectory:") Then
+			If StringInStr($tFileReadArray[$i], "# SaveDirectory:") Then
+				$aServerSaveGame = $aServerDirLocal & "\Saves"
+;~ 				$tChangesTF = True
+;~ 				$tFileReadArray[$i] = StringReplace($tFileReadArray[$i], "# SaveDirectory:", "SaveDirectory:")
+;~ 				$tTxt &= "Error! Server Name was disabled and is now enabled in " & $aConfigFile & @CRLF
+			EndIf
+			If $tSplit[0] > 1 Then
+				$tSplit[2] = StringTrimLeft($tSplit[2], 1)
+				$aServerSaveGame = $aServerDirLocal & "\" & $tSplit[2]
+			Else
+				$aServerSaveGame = $aServerDirLocal & "\Saves"
+				$tTxt &= "Error importing Server Name from " & $aConfigFile & @CRLF
+			EndIf
+			LogWrite(" [Config] . . . Imported Srv_Name:" & $aServerName)
+		EndIf
 		If StringInStr($tFileReadArray[$i], "Tel_Enabled:") Then
 			If StringInStr($tFileReadArray[$i], "# Tel_Enabled:") Then
 				$tChangesTF = True
@@ -4700,7 +4692,7 @@ Func GetPlayerCount($tSplash)
 		TraySetToolTip(@ScriptName)
 		TraySetIcon(@ScriptName, 99)
 		$tPlayersBeforeString = IniRead($aUtilCFGFile, "CFG", "Players Name", "")
-		If ($tPlayersBeforeString <> $aPlayersOnlineName) Then ;kim125er!
+		If ($tPlayersBeforeString <> $aPlayersOnlineName) Then
 			Local $tPlayersBeforeArray = StringSplit($tPlayersBeforeString, Chr(238), 2)
 			Local $tPlayersAfterArray = StringSplit($aPlayersOnlineName, Chr(238), 2)
 			$tTempArray = _ArrayCompare($tPlayersBeforeArray, $tPlayersAfterArray)
@@ -4745,7 +4737,6 @@ Func TelnetOnlinePlayers($ip, $port, $pwd)
 	$tErr = False
 	$tRead1 = _PlinkSend($aTelnetPlayersCMD)
 	Local $tArray3 = StringSplit($tRead1, @CRLF)
-;~ 	_ArrayDisplay($tArray3, "Line 4738") ;kim125er
 	If IsArray($tArray3) Then
 		For $t1 = 1 To ($tArray3[0] - 1)
 			If StringInStr($tArray3[$t1], "Players connected (") Then
@@ -4754,16 +4745,11 @@ Func TelnetOnlinePlayers($ip, $port, $pwd)
 			EndIf
 		Next
 	EndIf
-;~ 	MsgBox(0,"Kim >0", $sReturn[0] & ":" & $tArray3[0]) ;kim125er!
 	Local $tDone = False
 	If $sReturn[0] > 0 Then
 		For $t1 = 1 To ($tArray3[0] - 1)
-;~ 			_Splash($t1 & ":" & $tArray3[$t1], 300) ;kim125er!
 			If StringInStr($tArray3[$t1], "Global online players list:") Then
-;~ 				MsgBox(0,"Kim Global", $tArray3[$t1]) ;kim125er!
 				For $t2 = ($t1 + 1) To ($tArray3[0] - 1)
-;~ 					_Splash($t2 & ":" & $tArray3[$t2], 300) ;kim125er!
-;~ 					If StringInStr($tArray3[$t2], "name=") Then MsgBox(0,"Kim",_ArrayToString(_StringBetween($tArray3[$t2], "name=", " fac="))) ;kim125er
 					If StringInStr($tArray3[$t2], "name=") Then _ArrayAdd($sReturn, _ArrayToString(_StringBetween($tArray3[$t2], "name=", " fac=")))
 					If StringInStr($tArray3[$t2], "Global players list") Then
 						$tDone = True
@@ -5047,7 +5033,7 @@ EndFunc   ;==>_ArrayCompare
 Func _PlinkConnect($tIP, $tPort, $tPwd, $tLog012 = 2, $tSkipVerifyTF = False) ; $tLog0123: 0 = no log, 1 = Detailed log only, 2 = Both logs
 	Local $sReturn = -1
 	Local $kReturn = ""
-	_DownloadAndExtractFile("plink", "http://www.phoenix125.com/share/plink/plink.zip", "https://github.com/phoenix125/" & $aUtilName & "/releases/download/LatestVersion/plink.zip", $aSplash, $aFolderTemp)
+	_DownloadAndExtractFile("plink", "http://www.phoenix125.com/share/plink/plink.zip", "https://github.com/phoenix125/dependencies/releases/download/release/plink.zip", $aSplash, $aFolderTemp)
 	Local $tPID = _CheckForExistingPlink()
 	If $tPID > 0 Then
 		Local $sReturn = $tPID
@@ -5215,7 +5201,7 @@ Func _GetPlayerNamesIDsFromLog($tID)
 	Global $xPlayerName[1]
 	Global $xPlayerSteamID[1]
 	For $i = 0 To (UBound($tReadArray) - 1)
-		If StringInStr($tReadArray[$i], "Got player id:") Then ;kim125er
+		If StringInStr($tReadArray[$i], "Got player id:") Then
 			_ArrayAdd($xPlayerID, Number(_ArrayToString(_StringBetween($tReadArray[$i], "EId=", ","))))
 			_ArrayAdd($xPlayerName, _ArrayToString(_StringBetween($tReadArray[$i], "'", "'")))
 			_ArrayAdd($xPlayerSteamID, Number(_ArrayToString(_StringBetween($tReadArray[$i], ", ", "/"))))
@@ -5229,7 +5215,7 @@ Func _DisableCloseButton($tHwd)
 	DllCall("User32.dll", "int", "DrawMenuBar", "hwnd", $tHwd)
 EndFunc   ;==>_DisableCloseButton
 #Region ### START Koda GUI section ### Form=K:\AutoIT\_MyProgs\EmpyrionServerUpdateUtility\Koda GUIs\Empyrion_W1(b3).kxf
-Func GUI_Config($tNewInstallTF = False)
+Func GUI_Config($tNewInstallTF = False, $tSplash = 0)
 	If WinExists($hGUI_LoginLogo) Then GUIDelete($hGUI_LoginLogo)
 	If WinExists($Config) Then
 		_WinAPI_SetWindowPos($Config, $HWND_TOPMOST, 0, 0, 0, 0, BitOR($SWP_NOACTIVATE, $SWP_NOMOVE, $SWP_NOSIZE))
@@ -6115,6 +6101,7 @@ Func GUI_Config($tNewInstallTF = False)
 		Global $Pic3 = GUICtrlCreatePic($aFolderTemp & "alienchatclose.jpg", 562, 70, 317, 153)
 		GUICtrlSetOnEvent(-1, "Pic3Click")
 		Global $Tab5 = GUICtrlCreateTabItem("5 Discord Webhooks")
+		GUICtrlSetState(-1, $GUI_SHOW)
 		Global $Group3 = GUICtrlCreateGroup("Discord Webhooks", 38, 65, 831, 325)
 		GUICtrlSetFont(-1, 10, 400, 0, "arial")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
@@ -6310,43 +6297,23 @@ Func GUI_Config($tNewInstallTF = False)
 		GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T5_C_WHChat4Click")
-		Global $Label66 = GUICtrlCreateLabel("Webhook(s) to send PLAYER DEATH Messages to:", 58, 485, 315, 20)
-		GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
-		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
-		GUICtrlSetOnEvent(-1, "Label66Click")
-		Global $W1_T5_C_WHDie1 = GUICtrlCreateCheckbox("#1", 403, 486, 30, 17)
-		GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
-		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
-		GUICtrlSetOnEvent(-1, "W1_T5_C_WHDie1Click")
-		Global $W1_T5_C_WHDie2 = GUICtrlCreateCheckbox("#2", 444, 486, 30, 17)
-		GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
-		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
-		GUICtrlSetOnEvent(-1, "W1_T5_C_WHDie2Click")
-		Global $W1_T5_C_WHDie3 = GUICtrlCreateCheckbox("#3", 485, 486, 30, 17)
-		GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
-		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
-		GUICtrlSetOnEvent(-1, "W1_T5_C_WHDie3Click")
-		Global $W1_T5_C_WHDie4 = GUICtrlCreateCheckbox("#4", 527, 486, 30, 17)
-		GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
-		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
-		GUICtrlSetOnEvent(-1, "W1_T5_C_WHDie4Click")
-		Global $Label102 = GUICtrlCreateLabel("Webhook(s) to send ALL CHAT Messages to:", 58, 507, 275, 20)
+		Global $Label102 = GUICtrlCreateLabel("Webhook(s) to send ALL CHAT Messages to:", 58, 485, 275, 20)
 		GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "Label102Click")
-		Global $W1_T5_C_WHAllChat1 = GUICtrlCreateCheckbox("#1", 403, 508, 30, 17)
+		Global $W1_T5_C_WHAllChat1 = GUICtrlCreateCheckbox("#1", 403, 486, 30, 17)
 		GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T5_C_WHAllChat1Click")
-		Global $W1_T5_C_WHAllChat2 = GUICtrlCreateCheckbox("#2", 444, 508, 30, 17)
+		Global $W1_T5_C_WHAllChat2 = GUICtrlCreateCheckbox("#2", 444, 486, 30, 17)
 		GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T5_C_WHAllChat2Click")
-		Global $W1_T5_C_WHAllChat3 = GUICtrlCreateCheckbox("#3", 485, 508, 30, 17)
+		Global $W1_T5_C_WHAllChat3 = GUICtrlCreateCheckbox("#3", 485, 486, 30, 17)
 		GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T5_C_WHAllChat3Click")
-		Global $W1_T5_C_WHAllChat4 = GUICtrlCreateCheckbox("#4", 527, 508, 30, 17)
+		Global $W1_T5_C_WHAllChat4 = GUICtrlCreateCheckbox("#4", 527, 486, 30, 17)
 		GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T5_C_WHAllChat4Click")
@@ -6354,7 +6321,6 @@ Func GUI_Config($tNewInstallTF = False)
 		Global $Pic6 = GUICtrlCreatePic($aFolderTemp & "Canned_Vegetables.jpg", 690, 426, 91, 97)
 		GUICtrlSetOnEvent(-1, "Pic6Click")
 		Global $Tab6 = GUICtrlCreateTabItem("6 Discord Announcements")
-		GUICtrlSetState(-1, $GUI_SHOW)
 		Global $Group12 = GUICtrlCreateGroup("Discord Announcements", 18, 75, 867, 455)
 		GUICtrlSetFont(-1, 10, 400, 0, "arial")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
@@ -6370,7 +6336,7 @@ Func GUI_Config($tNewInstallTF = False)
 		GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T6_C_UpdateClick")
-		Global $W1_T6_I_Update = GUICtrlCreateInput("", 147, 144, 728, 22)
+		Global $W1_T6_I_Update = GUICtrlCreateInput("Input13", 147, 144, 728, 22)
 		GUICtrlSetFont(-1, 8, 400, 0, "arial")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T6_I_UpdateChange")
@@ -6378,7 +6344,7 @@ Func GUI_Config($tNewInstallTF = False)
 		GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T6_C_RemoteClick")
-		Global $W1_T6_I_Remote = GUICtrlCreateInput("", 147, 173, 728, 22)
+		Global $W1_T6_I_Remote = GUICtrlCreateInput("Input13", 147, 173, 728, 22)
 		GUICtrlSetFont(-1, 8, 400, 0, "arial")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T6_I_RemoteChange")
@@ -6398,18 +6364,18 @@ Func GUI_Config($tNewInstallTF = False)
 		GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T6_C_PlayerChangeClick")
-		Global $W1_T6_I_PlayerChange = GUICtrlCreateInput("", 182, 272, 692, 22)
+		Global $W1_T6_I_PlayerChange = GUICtrlCreateInput("Input13", 182, 272, 692, 22)
 		GUICtrlSetFont(-1, 8, 400, 0, "arial")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T6_I_PlayerChangeChange")
-		Global $W1_T6_I_SubJoined = GUICtrlCreateInput("", 230, 299, 644, 22)
+		Global $W1_T6_I_SubJoined = GUICtrlCreateInput("Input13", 230, 299, 644, 22)
 		GUICtrlSetFont(-1, 8, 400, 0, "Arial")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T6_I_SubJoinedChange")
 		Global $Label21 = GUICtrlCreateLabel("Joined Player Sub-Message ( \j )", 69, 303, 157, 17)
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "Label21Click")
-		Global $W1_T6_I_SubLeft = GUICtrlCreateInput("", 230, 326, 644, 22)
+		Global $W1_T6_I_SubLeft = GUICtrlCreateInput("Input13", 230, 326, 644, 22)
 		GUICtrlSetFont(-1, 8, 400, 0, "arial")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T6_I_SubLeftChange")
@@ -6419,7 +6385,7 @@ Func GUI_Config($tNewInstallTF = False)
 		Global $Label68 = GUICtrlCreateLabel("Online Player Sub-Message ( \a )", 67, 357, 160, 17)
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "Label68Click")
-		Global $W1_T6_I_SubOnlinePlayer = GUICtrlCreateInput("", 230, 353, 644, 22)
+		Global $W1_T6_I_SubOnlinePlayer = GUICtrlCreateInput("Input13", 230, 353, 644, 22)
 		GUICtrlSetFont(-1, 8, 400, 0, "arial")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T6_I_SubOnlinePlayerChange")
@@ -6427,7 +6393,7 @@ Func GUI_Config($tNewInstallTF = False)
 		GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T6_C_PlayerChatClick")
-		Global $W1_T6_I_PlayerChat = GUICtrlCreateInput("", 494, 415, 380, 22)
+		Global $W1_T6_I_PlayerChat = GUICtrlCreateInput("Input13", 494, 415, 380, 22)
 		GUICtrlSetFont(-1, 8, 400, 0, "arial")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T6_I_PlayerChatChange")
@@ -6439,14 +6405,14 @@ Func GUI_Config($tNewInstallTF = False)
 		GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T6_C_BackupStartedClick")
-		Global $W1_T6_I_BackupStarted = GUICtrlCreateInput("", 142, 488, 732, 22)
+		Global $W1_T6_I_BackupStarted = GUICtrlCreateInput("Input13", 142, 488, 732, 22)
 		GUICtrlSetFont(-1, 8, 400, 0, "arial")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T6_I_BackupStartedChange")
 		Global $Label96 = GUICtrlCreateLabel("", 67, 384, 4, 4)
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "Label96Click")
-		Global $W1_T6_I_OnlinePlayerSeparator = GUICtrlCreateInput("", 230, 380, 644, 22)
+		Global $W1_T6_I_OnlinePlayerSeparator = GUICtrlCreateInput("Input13", 230, 380, 644, 22)
 		GUICtrlSetFont(-1, 8, 400, 0, "arial")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T6_I_OnlinePlayerSeparatorChange")
@@ -6470,7 +6436,7 @@ Func GUI_Config($tNewInstallTF = False)
 		GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T7_C_TwitchDailyClick")
-		Global $W1_T7_I_TwitchDaily = GUICtrlCreateInput("", 145, 130, 728, 22)
+		Global $W1_T7_I_TwitchDaily = GUICtrlCreateInput("Input13", 145, 130, 728, 22)
 		GUICtrlSetFont(-1, 8, 400, 0, "arial")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T7_I_TwitchDailyChange")
@@ -6478,7 +6444,7 @@ Func GUI_Config($tNewInstallTF = False)
 		GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T7_C_TwitchUpdateClick")
-		Global $W1_T7_I_TwitchUpdate = GUICtrlCreateInput("", 145, 159, 728, 22)
+		Global $W1_T7_I_TwitchUpdate = GUICtrlCreateInput("Input13", 145, 159, 728, 22)
 		GUICtrlSetFont(-1, 8, 400, 0, "arial")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T7_I_TwitchUpdateChange")
@@ -6486,7 +6452,7 @@ Func GUI_Config($tNewInstallTF = False)
 		GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T7_C_TwitchRemoteClick")
-		Global $W1_T7_I_TwitchRemote = GUICtrlCreateInput("", 145, 188, 728, 22)
+		Global $W1_T7_I_TwitchRemote = GUICtrlCreateInput("Input13", 145, 188, 728, 22)
 		GUICtrlSetFont(-1, 8, 400, 0, "arial")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T7_I_TwitchRemoteChange")
@@ -6522,7 +6488,7 @@ Func GUI_Config($tNewInstallTF = False)
 		GUICtrlSetFont(-1, 10, 400, 0, "MS Sans Serif")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T7_C_BackupStartedClick")
-		Global $W1_T7_I_TwitchBackStarted = GUICtrlCreateInput("", 147, 403, 728, 22)
+		Global $W1_T7_I_TwitchBackStarted = GUICtrlCreateInput("Input13", 147, 403, 728, 22)
 		GUICtrlSetFont(-1, 8, 400, 0, "arial")
 		GUICtrlSetResizing(-1, $GUI_DOCKLEFT + $GUI_DOCKTOP + $GUI_DOCKWIDTH + $GUI_DOCKHEIGHT)
 		GUICtrlSetOnEvent(-1, "W1_T7_I_TwitchBackStartedChange")
@@ -7039,26 +7005,26 @@ Func _UpdateWindowConfig()
 	Else
 		GUICtrlSetState($W1_T5_C_WHAllChat4, $GUI_UNCHECKED)
 	EndIf
-	If StringInStr($aServerDiscordWHSelDie, "1") Then
-		GUICtrlSetState($W1_T5_C_WHDie1, $GUI_CHECKED)
-	Else
-		GUICtrlSetState($W1_T5_C_WHDie1, $GUI_UNCHECKED)
-	EndIf
-	If StringInStr($aServerDiscordWHSelDie, "2") Then
-		GUICtrlSetState($W1_T5_C_WHDie2, $GUI_CHECKED)
-	Else
-		GUICtrlSetState($W1_T5_C_WHDie2, $GUI_UNCHECKED)
-	EndIf
-	If StringInStr($aServerDiscordWHSelDie, "3") Then
-		GUICtrlSetState($W1_T5_C_WHDie3, $GUI_CHECKED)
-	Else
-		GUICtrlSetState($W1_T5_C_WHDie3, $GUI_UNCHECKED)
-	EndIf
-	If StringInStr($aServerDiscordWHSelDie, "4") Then
-		GUICtrlSetState($W1_T5_C_WHDie4, $GUI_CHECKED)
-	Else
-		GUICtrlSetState($W1_T5_C_WHDie4, $GUI_UNCHECKED)
-	EndIf
+;~ 	If StringInStr($aServerDiscordWHSelDie, "1") Then
+;~ 		GUICtrlSetState($W1_T5_C_WHDie1, $GUI_CHECKED)
+;~ 	Else
+;~ 		GUICtrlSetState($W1_T5_C_WHDie1, $GUI_UNCHECKED)
+;~ 	EndIf
+;~ 	If StringInStr($aServerDiscordWHSelDie, "2") Then
+;~ 		GUICtrlSetState($W1_T5_C_WHDie2, $GUI_CHECKED)
+;~ 	Else
+;~ 		GUICtrlSetState($W1_T5_C_WHDie2, $GUI_UNCHECKED)
+;~ 	EndIf
+;~ 	If StringInStr($aServerDiscordWHSelDie, "3") Then
+;~ 		GUICtrlSetState($W1_T5_C_WHDie3, $GUI_CHECKED)
+;~ 	Else
+;~ 		GUICtrlSetState($W1_T5_C_WHDie3, $GUI_UNCHECKED)
+;~ 	EndIf
+;~ 	If StringInStr($aServerDiscordWHSelDie, "4") Then
+;~ 		GUICtrlSetState($W1_T5_C_WHDie4, $GUI_CHECKED)
+;~ 	Else
+;~ 		GUICtrlSetState($W1_T5_C_WHDie4, $GUI_UNCHECKED)
+;~ 	EndIf
 	If StringInStr($aServerDiscordWHSelPlayers, "1") Then
 		GUICtrlSetState($W1_T5_C_WHOnline1, $GUI_CHECKED)
 	Else
@@ -7308,6 +7274,7 @@ EndFunc   ;==>_BackupDayCB
 Func ConfigClose()
 	If WinExists($wGUIMainWindow) Then
 		GUIDelete($Config)
+		If $tSplash > 0 Then $aSplash = _Splash($aUtilName & " started.")
 	Else
 		$aConfigWindowClose = True
 	EndIf
