@@ -1,11 +1,11 @@
 #Region ;**** Directives created by AutoIt3Wrapper_GUI ****
 #AutoIt3Wrapper_Icon=Resources\phoenixtray.ico
-#AutoIt3Wrapper_Outfile=Builds\EmpyrionServerUpdateUtility_v1.0.2.exe
+#AutoIt3Wrapper_Outfile=Builds\EmpyrionServerUpdateUtility_v1.0.3.exe
 #AutoIt3Wrapper_Res_Comment=By Phoenix125 based on Dateranoth's ConanServerUtility v3.3.0-Beta.3
 #AutoIt3Wrapper_Res_Description=Empyrion Dedicated Server Update Utility
-#AutoIt3Wrapper_Res_Fileversion=1.0.2
+#AutoIt3Wrapper_Res_Fileversion=1.0.3
 #AutoIt3Wrapper_Res_ProductName=EmpyrionServerUpdateUtility
-#AutoIt3Wrapper_Res_ProductVersion=1.0.2
+#AutoIt3Wrapper_Res_ProductVersion=1.0.3
 #AutoIt3Wrapper_Res_CompanyName=http://www.Phoenix125.com
 #AutoIt3Wrapper_Res_LegalCopyright=http://www.Phoenix125.com
 #AutoIt3Wrapper_Res_Language=1033
@@ -45,11 +45,11 @@ Opt("GUIResizeMode", $GUI_DOCKLEFT + $GUI_DOCKTOP)
 
 ; *** End added by AutoIt3Wrapper ***
 
-$aUtilVerStable = "v1.0.2" ; (2020-09-01)
-$aUtilVerBeta = "v1.0.2" ; (2020-09-01)
+$aUtilVerStable = "v1.0.3" ; (2020-09-07)
+$aUtilVerBeta = "v1.0.3" ; (2020-09-07)
 $aUtilVersion = $aUtilVerStable
 Global $aUtilVerNumber = 0
-; 0 = v1.0.0/1/2
+; 0 = v1.0.0/1/2/3
 
 ;**** Directives created by AutoIt3Wrapper_GUI ****
 ;Originally written by Dateranoth for use and modified for Empyrion by Phoenix125.com
@@ -165,7 +165,7 @@ Global $aRemoteRestartUse = "no"
 Global $aNextHorde = 7
 Global $tQueryLogReadDoneTF = False
 ;~ Global $aServerNamFromLog = "[Not Read Yet]"
-;~ Global $aServerNameToDisplay = ""
+Global $aServerNameToDisplay = ""
 Global $tFailedCountQuery = 0
 Global $tFailedCountTelnet = 0
 Global $wGUIMainWindow = -1
@@ -191,7 +191,6 @@ Global $aUpdateSource = "0" ; 0 = SteamCMD , 1 = SteamDB.com
 Global $aServerPID = 0
 Global $aServerPort = 0
 Global $aTelnetPort = 0
-Global $aServerName = ""
 Global $aTelnetPass = "Phoenix125bc123"
 Global $aServerSaveGame = ""
 $aServerUpdateLinkVerStable = "http://www.phoenix125.com/share/" & StringLower($aGameName) & "/" & StringLower($aGameName) & "latestver.txt"
@@ -1581,7 +1580,8 @@ Func _UpdateTray()
 	If $aQueryYN = "yes" Then
 		$aServerNameToDisplay = $aServerQueryName
 	Else
-;~ 		$aServerNameToDisplay = $aServerNamFromLog
+		If $aServerName = "" Then $aServerName = "Empyrion"
+		$aServerNameToDisplay = $aServerName
 	EndIf
 	TrayItemSetText($iTrayQueryServerName, "PID(" & $aServerPID & ") " & $aServerNameToDisplay)
 	If $aServerOnlinePlayerYN = "yes" Then
@@ -2448,8 +2448,12 @@ EndFunc   ;==>_ExtractZip
 Func UtilUpdate($tLink, $tDL, $tUtil, $tUtilName)
 	$aSplash = _Splash($aUtilName & " " & $aUtilVersion & " started." & @CRLF & @CRLF & "Checking for " & $tUtilName & " updates.")
 	Local $tVer[2]
+	Local $tErr = False
 	$hFileRead = _INetGetSource($tLink)
-	If @error Then
+	If @error Then $tErr = True
+	$tVer = StringSplit($hFileRead, "^", 2)
+	If UBound($tVer) < 2 Then $tErr = True
+	If $tErr Then
 		LogWrite(" [UTIL] " & $tUtilName & " update check failed to download latest version: " & $tLink)
 		If $aShowUpdate Then
 			ControlSetText($aSplash, "", "Static1", $aUtilName & " update check failed." & @CRLF & "Please try again later.")
@@ -2457,7 +2461,7 @@ Func UtilUpdate($tLink, $tDL, $tUtil, $tUtilName)
 			$aShowUpdate = False
 		EndIf
 	Else
-		$tVer = StringSplit($hFileRead, "^", 2)
+		If UBound($tVer) < 2 Then ReDim $tVer[2]
 		If $tVer[0] = $tUtil Then
 			LogWrite(" [UTIL] " & $tUtilName & " up to date.", " [UTIL] " & $tUtilName & " up to date. Version: " & $tVer[0] & " , Notes: " & $tVer[1])
 			If $aShowUpdate Then
@@ -3110,7 +3114,7 @@ Func ReadUini($aIniFile, $sLogFile)
 		$iIniError = $iIniError & "RemoteRestartCode, "
 	EndIf
 	If $iniCheck = $aQueryYN Then
-		$aQueryYN = "yes"
+		$aQueryYN = "no"
 		$iIniFail += 1
 		$iIniError = $iIniError & "QueryYN, "
 	EndIf
@@ -4882,9 +4886,6 @@ Func _GetQuery($tIP, $tPort)
 			$aQueryYN = "no"
 		EndIf
 	EndIf
-	If $aQueryYN = "yes" Then
-	EndIf
-
 	Local $mWaitms = 1000
 	Local $tQuerycmd = '"' & $tFileRun & '" -po ' & $tIP & ':' & ($tPort + 1)
 	Local $mOut = Run($tQuerycmd, @ScriptDir, @SW_HIDE, $STDOUT_CHILD)

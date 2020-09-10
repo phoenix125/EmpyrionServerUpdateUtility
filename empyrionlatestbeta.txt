@@ -1,1 +1,1 @@
-v1.0.2^v1.0.2 Bug fixes|ESUU would crash during server restarts||v1.0.1 Bug fix|Backups caused line 20383 error||v1.0.0 Initial Release
+v1.0.3^v1.0.3 Fixed Line 20564 error when Query Watchdog disabled||v1.0.2 Bug fixes|ESUU would crash during server restarts||v1.0.1 Bug fix|Backups caused line 20383 error||v1.0.0 Initial Release

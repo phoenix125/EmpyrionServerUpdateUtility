@@ -1,11 +1,11 @@
 #Region
 #AutoIt3Wrapper_Icon=Resources\phoenixtray.ico
-#AutoIt3Wrapper_Outfile=Builds\EmpyrionServerUpdateUtility_v1.0.2.exe
+#AutoIt3Wrapper_Outfile=Builds\EmpyrionServerUpdateUtility_v1.0.3.exe
 #AutoIt3Wrapper_Res_Comment=By Phoenix125 based on Dateranoth's ConanServerUtility v3.3.0-Beta.3
 #AutoIt3Wrapper_Res_Description=Empyrion Dedicated Server Update Utility
-#AutoIt3Wrapper_Res_Fileversion=1.0.2
+#AutoIt3Wrapper_Res_Fileversion=1.0.3
 #AutoIt3Wrapper_Res_ProductName=EmpyrionServerUpdateUtility
-#AutoIt3Wrapper_Res_ProductVersion=1.0.2
+#AutoIt3Wrapper_Res_ProductVersion=1.0.3
 #AutoIt3Wrapper_Res_CompanyName=http://www.Phoenix125.com
 #AutoIt3Wrapper_Res_LegalCopyright=http://www.Phoenix125.com
 #AutoIt3Wrapper_Res_Language=1033
@@ -19388,8 +19388,8 @@ Return $tPalette
 EndFunc
 Opt("GUIOnEventMode", 1)
 Opt("GUIResizeMode", $GUI_DOCKLEFT + $GUI_DOCKTOP)
-$aUtilVerStable = "v1.0.2"
-$aUtilVerBeta = "v1.0.2"
+$aUtilVerStable = "v1.0.3"
+$aUtilVerBeta = "v1.0.3"
 $aUtilVersion = $aUtilVerStable
 Global $aUtilVerNumber = 0
 Global Const $aServerEXE = "EmpyrionLauncher.exe"
@@ -19490,6 +19490,7 @@ Global $aIniExist = False
 Global $aRemoteRestartUse = "no"
 Global $aNextHorde = 7
 Global $tQueryLogReadDoneTF = False
+Global $aServerNameToDisplay = ""
 Global $tFailedCountQuery = 0
 Global $tFailedCountTelnet = 0
 Global $wGUIMainWindow = -1
@@ -19515,7 +19516,6 @@ Global $aUpdateSource = "0"
 Global $aServerPID = 0
 Global $aServerPort = 0
 Global $aTelnetPort = 0
-Global $aServerName = ""
 Global $aTelnetPass = "Phoenix125bc123"
 Global $aServerSaveGame = ""
 $aServerUpdateLinkVerStable = "http://www.phoenix125.com/share/" & StringLower($aGameName) & "/" & StringLower($aGameName) & "latestver.txt"
@@ -20561,6 +20561,8 @@ Func _UpdateTray()
 If $aQueryYN = "yes" Then
 $aServerNameToDisplay = $aServerQueryName
 Else
+If $aServerName = "" Then $aServerName = "Empyrion"
+$aServerNameToDisplay = $aServerName
 EndIf
 TrayItemSetText($iTrayQueryServerName, "PID(" & $aServerPID & ") " & $aServerNameToDisplay)
 If $aServerOnlinePlayerYN = "yes" Then
@@ -21336,8 +21338,12 @@ EndFunc
 Func UtilUpdate($tLink, $tDL, $tUtil, $tUtilName)
 $aSplash = _Splash($aUtilName & " " & $aUtilVersion & " started." & @CRLF & @CRLF & "Checking for " & $tUtilName & " updates.")
 Local $tVer[2]
+Local $tErr = False
 $hFileRead = _INetGetSource($tLink)
-If @error Then
+If @error Then $tErr = True
+$tVer = StringSplit($hFileRead, "^", 2)
+If UBound($tVer) < 2 Then $tErr = True
+If $tErr Then
 LogWrite(" [UTIL] " & $tUtilName & " update check failed to download latest version: " & $tLink)
 If $aShowUpdate Then
 ControlSetText($aSplash, "", "Static1", $aUtilName & " update check failed." & @CRLF & "Please try again later.")
@@ -21345,7 +21351,7 @@ Sleep(2000)
 $aShowUpdate = False
 EndIf
 Else
-$tVer = StringSplit($hFileRead, "^", 2)
+If UBound($tVer) < 2 Then ReDim $tVer[2]
 If $tVer[0] = $tUtil Then
 LogWrite(" [UTIL] " & $tUtilName & " up to date.", " [UTIL] " & $tUtilName & " up to date. Version: " & $tVer[0] & " , Notes: " & $tVer[1])
 If $aShowUpdate Then
@@ -21848,7 +21854,7 @@ $iIniFail += 1
 $iIniError = $iIniError & "RemoteRestartCode, "
 EndIf
 If $iniCheck = $aQueryYN Then
-$aQueryYN = "yes"
+$aQueryYN = "no"
 $iIniFail += 1
 $iIniError = $iIniError & "QueryYN, "
 EndIf
@@ -23267,8 +23273,6 @@ If $tFileExist = False Then
 LogWrite(" [Query] ERROR!! Failed to download and extract " & $tFileBase & ". Query watchdog disabled until tool restarted.")
 $aQueryYN = "no"
 EndIf
-EndIf
-If $aQueryYN = "yes" Then
 EndIf
 Local $mWaitms = 1000
 Local $tQuerycmd = '"' & $tFileRun & '" -po ' & $tIP & ':' & ($tPort + 1)
