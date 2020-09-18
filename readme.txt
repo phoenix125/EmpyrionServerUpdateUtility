@@ -1,5 +1,5 @@
 EmpyrionServerUpdateUtility - A Utility to Keep Your Empyrion Dedicated Server updated (and schedule server restarts, download and install new server files, and more!)
-- Latest version: EmpyrionServerUpdateUtility_v1.0.3 (2020-09-09) (Beta and Stable are the same version)
+- Latest version: EmpyrionServerUpdateUtility_v1.0.4 (2020-09-17) (Beta and Stable are the same version)
 - By Phoenix125 | http://www.Phoenix125.com | http://discord.gg/EU7pzPs | kim@kim125.com
 - Based on Dateranoth's ConanExilesServerUtility-3.3.0 and 7dServerUtility | https://gamercide.org/
 
@@ -132,6 +132,10 @@ In a standard web browser, type in the URL http://192.168.1.30:57520?restart=pas
 -----------------
  VERSION HISTORY
 -----------------
+(2020-09-17) v1.0.4 Bug Fixes
+- Fixed: In Config window, the Config File "Select File" button was restricting to .xml files. Changed to .yaml.
+- Fixed: If player name ended with a space, the util would keep posting "new player" to Discord.
+
 (2020-09-09) v1.0.3 Bug Fix
 - Fixed: Line 20564 due to error acruiring server name from Query if Query disabled. (Thanks to @SylenThunder for reporting)
 - Changed: Query Port Watchdog is disabled by default now.

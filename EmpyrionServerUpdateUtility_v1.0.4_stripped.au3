@@ -1,11 +1,11 @@
 #Region
 #AutoIt3Wrapper_Icon=Resources\phoenixtray.ico
-#AutoIt3Wrapper_Outfile=Builds\EmpyrionServerUpdateUtility_v1.0.3.exe
+#AutoIt3Wrapper_Outfile=Builds\EmpyrionServerUpdateUtility_v1.0.4.exe
 #AutoIt3Wrapper_Res_Comment=By Phoenix125 based on Dateranoth's ConanServerUtility v3.3.0-Beta.3
 #AutoIt3Wrapper_Res_Description=Empyrion Dedicated Server Update Utility
-#AutoIt3Wrapper_Res_Fileversion=1.0.3
+#AutoIt3Wrapper_Res_Fileversion=1.0.4
 #AutoIt3Wrapper_Res_ProductName=EmpyrionServerUpdateUtility
-#AutoIt3Wrapper_Res_ProductVersion=1.0.3
+#AutoIt3Wrapper_Res_ProductVersion=1.0.4
 #AutoIt3Wrapper_Res_CompanyName=http://www.Phoenix125.com
 #AutoIt3Wrapper_Res_LegalCopyright=http://www.Phoenix125.com
 #AutoIt3Wrapper_Res_Language=1033
@@ -19388,8 +19388,8 @@ Return $tPalette
 EndFunc
 Opt("GUIOnEventMode", 1)
 Opt("GUIResizeMode", $GUI_DOCKLEFT + $GUI_DOCKTOP)
-$aUtilVerStable = "v1.0.3"
-$aUtilVerBeta = "v1.0.3"
+$aUtilVerStable = "v1.0.4"
+$aUtilVerBeta = "v1.0.4"
 $aUtilVersion = $aUtilVerStable
 Global $aUtilVerNumber = 0
 Global Const $aServerEXE = "EmpyrionLauncher.exe"
@@ -23099,9 +23099,19 @@ $tOnlinePlayers[2] = $tOnlinePlayers[2] & "(" & $tUserCnt & ") "
 For $i = 1 To ($tUserCnt)
 $tOnlinePlayers[1] = $tOnlinePlayers[1] & $xPlayersList[$i] & @CRLF
 $tOnlinePlayers[2] = $tOnlinePlayers[2] & $xPlayersList[$i] & StringReplace($aPlayerSeparator, ";", " ")
+If StringRight($xPlayersList[$i], 1) = " " Then
+For $x = 0 To (StringLen($xPlayersList[$i]) - 1)
+If StringRight($xPlayersList[$i], 1) = " " Then
+StringTrimRight($xPlayersList[$i], 1)
+Else
+ExitLoop
+EndIf
+Next
+EndIf
 $aPlayersOnlineName &= $xPlayersList[$i] & Chr(238)
 Next
 $aPlayersOnlineName = StringTrimRight($aPlayersOnlineName, 1)
+MsgBox(0, "Kim", "Online:[" & $aPlayersOnlineName & "]")
 EndIf
 If $aRCONError Then
 LogWrite(" [Online Players] Error receiving online players.")
@@ -25646,7 +25656,7 @@ GUICtrlSetData($W1_T1_E_Commandline, $aSteamUpdateCommandline)
 EndFunc
 Func W1_T1_B_ConfigClick()
 Local $tCtrlID = $W1_T1_I_ConfigFile
-Local $tInput = FileOpenDialog("Please select config file", $aServerDirLocal, "XML File (*.xml)", 3, $aConfigFile)
+Local $tInput = FileOpenDialog("Please select config file", $aServerDirLocal, "YAML File (*.yaml)", 3, $aConfigFile)
 If @error Then
 Local $tRead = GUICtrlRead($tCtrlID)
 GUICtrlSetData($tCtrlID, $tRead)
