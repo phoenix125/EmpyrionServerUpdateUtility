@@ -1,1 +1,1 @@
-v1.0.4^v1.0.4 Bug Fixes|-Config Window: Config File defaulted to .xml instead of .yaml.|-If player name ended with a space, Discord kept posting "New Player" message.
+v1.0.4^v1.0.4 Bug Fixes|- Fixed: If steamcmd command line was manually changed, util kept resetting it.|-Config Window: Config File defaulted to .xml instead of .yaml.|-If player name ended with a space, Discord kept posting "New Player" message.

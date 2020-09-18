@@ -133,6 +133,7 @@ In a standard web browser, type in the URL http://192.168.1.30:57520?restart=pas
  VERSION HISTORY
 -----------------
 (2020-09-17) v1.0.4 Bug Fixes
+- Fixed: If steamcmd command line was manually changed, util kept resetting it. (Thanks to @AOD_Bazslash for reporting)
 - Fixed: In Config window, the Config File "Select File" button was restricting to .xml files. Changed to .yaml.
 - Fixed: If player name ended with a space, the util would keep posting "new player" to Discord.
 

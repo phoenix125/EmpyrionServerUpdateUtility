@@ -45,11 +45,11 @@ Opt("GUIResizeMode", $GUI_DOCKLEFT + $GUI_DOCKTOP)
 
 ; *** End added by AutoIt3Wrapper ***
 
-$aUtilVerStable = "v1.0.4" ; (2020-09-17)
-$aUtilVerBeta = "v1.0.4" ; (2020-09-01)
+$aUtilVerStable = "v1.0.4" ; (2020-09-07)
+$aUtilVerBeta = "v1.0.4" ; (2020-09-07)
 $aUtilVersion = $aUtilVerStable
 Global $aUtilVerNumber = 0
-; 0 = v1.0.0/1/2/3/4
+; 0 = v1.0.0/1/2/3
 
 ;**** Directives created by AutoIt3Wrapper_GUI ****
 ;Originally written by Dateranoth for use and modified for Empyrion by Phoenix125.com
@@ -327,10 +327,7 @@ Else
 	EndIf
 EndIf
 _SteamCMDCommandlineRead()
-If $aSteamUpdateCommandline = "" Then
-	_SteamCMDCreate()
-	_SteamCMDCommandlineWrite()
-EndIf
+If StringLen($aSteamUpdateCommandline) < 20 Then _SteamCMDCreate(True)
 _SteamCMDBatchFilesCreate()
 #Region ;**** Check for Update At Startup ****
 If ($aCheckForUpdate = "yes") Then
@@ -1059,9 +1056,8 @@ EndFunc   ;==>_SteamCMDCommandlineWrite
 Func _SteamCMDCommandlineRead()
 	$tRead = FileRead($aIniFile)
 	$aSteamUpdateCommandline = _ArrayToString(_StringBetween($tRead, '<--- BEGIN SteamCMD CODE --->' & @CRLF, '<--- END SteamCMD CODE --->'))
-	_SteamCMDCreate()
 EndFunc   ;==>_SteamCMDCommandlineRead
-Func _SteamCMDCreate()
+Func _SteamCMDCreate($tForceReset = False)
 ;~ 	Local $ServExp = ""
 ;~ 	If $aServerVer = "public" Then
 ;~ 	Else
@@ -1104,13 +1100,15 @@ Func _SteamCMDCreate()
 	FileWrite($aSteamUpdateCMDValY, $tTxtValY)
 	FileDelete($aSteamUpdateCMDValN)
 	FileWrite($aSteamUpdateCMDValN, $tTxtValN)
+	If StringLen($aSteamUpdateCommandline) < 20 Or $tForceReset Then
+		If $aValidate = "yes" Then ;kim125er!
+			$aSteamUpdateCommandline = $tTxtValY
+		Else
+			$aSteamUpdateCommandline = $tTxtValN
+		EndIf
+	EndIf
 	FileDelete($aSteamUpdateCMDCustom)
 	FileWrite($aSteamUpdateCMDCustom, $aSteamUpdateCommandline)
-	If $aValidate = "yes" Then
-		$aSteamUpdateCommandline = $tTxtValY
-	Else
-		$aSteamUpdateCommandline = $tTxtValN
-	EndIf
 	_SteamCMDCommandlineWrite()
 	_SteamCMDBatchFilesCreate()
 EndFunc   ;==>_SteamCMDCreate
@@ -2356,7 +2354,7 @@ EndFunc   ;==>RemoveInvalidCharacters
 Func SteamUpdate()
 	$aSplash = _Splash("Updating server now...")
 	$TimeStamp = StringRegExpReplace(_NowCalc(), "[\\\/\: ]", "_")
-	_SteamCMDCreate()
+	_SteamCMDCreate(False)
 	Local $sManifestExists = FileExists($aSteamCMDDir & "\steamapps\appmanifest_" & $aSteamAppID & ".acf")
 	If ($sManifestExists = 1) And ($aFirstBoot = 0) Then
 		FileMove($aSteamCMDDir & "\steamapps\appmanifest_" & $aSteamAppID & ".acf", $aSteamCMDDir & "\steamapps\appmanifest_" & $aSteamAppID & "_" & $TimeStamp & ".acf", 1)
@@ -3834,7 +3832,7 @@ Func ReadUini($aIniFile, $sLogFile)
 	LogWrite("", " . . . Server Folder = " & $aServerDirLocal)
 	LogWrite("", " . . . SteamCMD Folder = " & $aSteamCMDDir)
 	_SteamCMDCommandlineRead()
-	If StringLen($aSteamUpdateCommandline) < 20 Then _SteamCMDCreate()
+	If StringLen($aSteamUpdateCommandline) < 20 Then _SteamCMDCreate(True)
 	If FileExists($aBackupOutputFolder) = 0 Then DirCreate($aBackupOutputFolder)
 	If $iIniFail > 0 Then
 		iniFileCheck($aIniFile, $iIniFail, $iIniError)
@@ -4704,7 +4702,7 @@ Func GetPlayerCount($tSplash)
 				$aPlayersOnlineName &= $xPlayersList[$i] & Chr(238)
 			Next
 			$aPlayersOnlineName = StringTrimRight($aPlayersOnlineName, 1)
-			MsgBox(0, "Kim", "Online:[" & $aPlayersOnlineName & "]") ;kim125er!
+;~ 			MsgBox(0,"Kim","Online:[" & $aPlayersOnlineName & "]") ;kim125er!
 ;~ 			$aPlayersOnlineSteamID = _ArrayToString($tSteamIDArray)
 		EndIf
 		If $aRCONError Then
@@ -7346,7 +7344,7 @@ Func W1_T1_B_BackupOutFolderClick()
 	IniWrite($aIniFile, " --------------- BACKUP --------------- ", "Output folder ###", $aBackupOutputFolder)
 EndFunc   ;==>W1_T1_B_BackupOutFolderClick
 Func W1_T1_B_ResetCMDClick()
-	_SteamCMDCreate()
+	_SteamCMDCreate(True)
 	GUICtrlSetData($W1_T1_E_Commandline, $aSteamUpdateCommandline)
 EndFunc   ;==>W1_T1_B_ResetCMDClick
 Func W1_T1_B_ConfigClick()
@@ -7538,6 +7536,7 @@ Func W1_T1_C_EnableClick()
 EndFunc   ;==>W1_T1_C_EnableClick
 Func W1_T1_E_CommandlineChange()
 	$aSteamUpdateCommandline = GUICtrlRead($W1_T1_E_Commandline)
+	_SteamCMDCreate(False)
 	_SteamCMDCommandlineWrite()
 EndFunc   ;==>W1_T1_E_CommandlineChange
 Func W1_T1_I_BackupCmChange()
@@ -7605,14 +7604,14 @@ EndFunc   ;==>W1_T1_I_SteamBranchChange
 Func W1_T1_I_SteamPasswordChange()
 	$aSteamCMDPassword = GUICtrlRead($W1_T1_I_SteamPassword)
 	IniWrite($aIniFile, " --------------- GAME SERVER CONFIGURATION --------------- ", "SteamCMD Password (optional) ###", $aSteamCMDPassword)
-	_SteamCMDCreate()
+	_SteamCMDCreate(True)
 	_SteamCMDCommandlineWrite()
 	GUICtrlSetData($W1_T1_E_Commandline, $aSteamUpdateCommandline)
 EndFunc   ;==>W1_T1_I_SteamPasswordChange
 Func W1_T1_I_SteamUsernameChange()
 	$aSteamCMDUserName = GUICtrlRead($W1_T1_I_SteamUsername)
 	IniWrite($aIniFile, " --------------- GAME SERVER CONFIGURATION --------------- ", "SteamCMD Username (optional) ###", $aSteamCMDUserName)
-	_SteamCMDCreate()
+	_SteamCMDCreate(True)
 	_SteamCMDCommandlineWrite()
 	GUICtrlSetData($W1_T1_E_Commandline, $aSteamUpdateCommandline)
 EndFunc   ;==>W1_T1_I_SteamUsernameChange

@@ -19622,10 +19622,7 @@ MsgBox(0x0, $aGameName & " Server Not Found", "Could not find " & $aServerEXE & 
 EndIf
 EndIf
 _SteamCMDCommandlineRead()
-If $aSteamUpdateCommandline = "" Then
-_SteamCMDCreate()
-_SteamCMDCommandlineWrite()
-EndIf
+If StringLen($aSteamUpdateCommandline) < 20 Then _SteamCMDCreate(True)
 _SteamCMDBatchFilesCreate()
 #Region
 If ($aCheckForUpdate = "yes") Then
@@ -20197,9 +20194,8 @@ EndFunc
 Func _SteamCMDCommandlineRead()
 $tRead = FileRead($aIniFile)
 $aSteamUpdateCommandline = _ArrayToString(_StringBetween($tRead, '<--- BEGIN SteamCMD CODE --->' & @CRLF, '<--- END SteamCMD CODE --->'))
-_SteamCMDCreate()
 EndFunc
-Func _SteamCMDCreate()
+Func _SteamCMDCreate($tForceReset = False)
 If $aSteamCMDUserName = "" Then
 Local $tLogin = "anonymous"
 Else
@@ -20216,13 +20212,15 @@ FileDelete($aSteamUpdateCMDValY)
 FileWrite($aSteamUpdateCMDValY, $tTxtValY)
 FileDelete($aSteamUpdateCMDValN)
 FileWrite($aSteamUpdateCMDValN, $tTxtValN)
-FileDelete($aSteamUpdateCMDCustom)
-FileWrite($aSteamUpdateCMDCustom, $aSteamUpdateCommandline)
+If StringLen($aSteamUpdateCommandline) < 20 Or $tForceReset Then
 If $aValidate = "yes" Then
 $aSteamUpdateCommandline = $tTxtValY
 Else
 $aSteamUpdateCommandline = $tTxtValN
 EndIf
+EndIf
+FileDelete($aSteamUpdateCMDCustom)
+FileWrite($aSteamUpdateCMDCustom, $aSteamUpdateCommandline)
 _SteamCMDCommandlineWrite()
 _SteamCMDBatchFilesCreate()
 EndFunc
@@ -21282,7 +21280,7 @@ EndFunc
 Func SteamUpdate()
 $aSplash = _Splash("Updating server now...")
 $TimeStamp = StringRegExpReplace(_NowCalc(), "[\\\/\: ]", "_")
-_SteamCMDCreate()
+_SteamCMDCreate(False)
 Local $sManifestExists = FileExists($aSteamCMDDir & "\steamapps\appmanifest_" & $aSteamAppID & ".acf")
 If ($sManifestExists = 1) And ($aFirstBoot = 0) Then
 FileMove($aSteamCMDDir & "\steamapps\appmanifest_" & $aSteamAppID & ".acf", $aSteamCMDDir & "\steamapps\appmanifest_" & $aSteamAppID & "_" & $TimeStamp & ".acf", 1)
@@ -22477,7 +22475,7 @@ EndIf
 LogWrite("", " . . . Server Folder = " & $aServerDirLocal)
 LogWrite("", " . . . SteamCMD Folder = " & $aSteamCMDDir)
 _SteamCMDCommandlineRead()
-If StringLen($aSteamUpdateCommandline) < 20 Then _SteamCMDCreate()
+If StringLen($aSteamUpdateCommandline) < 20 Then _SteamCMDCreate(True)
 If FileExists($aBackupOutputFolder) = 0 Then DirCreate($aBackupOutputFolder)
 If $iIniFail > 0 Then
 iniFileCheck($aIniFile, $iIniFail, $iIniError)
@@ -23111,7 +23109,6 @@ EndIf
 $aPlayersOnlineName &= $xPlayersList[$i] & Chr(238)
 Next
 $aPlayersOnlineName = StringTrimRight($aPlayersOnlineName, 1)
-MsgBox(0, "Kim", "Online:[" & $aPlayersOnlineName & "]")
 EndIf
 If $aRCONError Then
 LogWrite(" [Online Players] Error receiving online players.")
@@ -25651,7 +25648,7 @@ GUICtrlSetData($tCtrlID, $aBackupOutputFolder)
 IniWrite($aIniFile, " --------------- BACKUP --------------- ", "Output folder ###", $aBackupOutputFolder)
 EndFunc
 Func W1_T1_B_ResetCMDClick()
-_SteamCMDCreate()
+_SteamCMDCreate(True)
 GUICtrlSetData($W1_T1_E_Commandline, $aSteamUpdateCommandline)
 EndFunc
 Func W1_T1_B_ConfigClick()
@@ -25840,6 +25837,7 @@ IniWrite($aIniFile, " --------------- BACKUP --------------- ", "Use scheduled b
 EndFunc
 Func W1_T1_E_CommandlineChange()
 $aSteamUpdateCommandline = GUICtrlRead($W1_T1_E_Commandline)
+_SteamCMDCreate(False)
 _SteamCMDCommandlineWrite()
 EndFunc
 Func W1_T1_I_BackupCmChange()
@@ -25907,14 +25905,14 @@ EndFunc
 Func W1_T1_I_SteamPasswordChange()
 $aSteamCMDPassword = GUICtrlRead($W1_T1_I_SteamPassword)
 IniWrite($aIniFile, " --------------- GAME SERVER CONFIGURATION --------------- ", "SteamCMD Password (optional) ###", $aSteamCMDPassword)
-_SteamCMDCreate()
+_SteamCMDCreate(True)
 _SteamCMDCommandlineWrite()
 GUICtrlSetData($W1_T1_E_Commandline, $aSteamUpdateCommandline)
 EndFunc
 Func W1_T1_I_SteamUsernameChange()
 $aSteamCMDUserName = GUICtrlRead($W1_T1_I_SteamUsername)
 IniWrite($aIniFile, " --------------- GAME SERVER CONFIGURATION --------------- ", "SteamCMD Username (optional) ###", $aSteamCMDUserName)
-_SteamCMDCreate()
+_SteamCMDCreate(True)
 _SteamCMDCommandlineWrite()
 GUICtrlSetData($W1_T1_E_Commandline, $aSteamUpdateCommandline)
 EndFunc
