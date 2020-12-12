@@ -1,1 +1,1 @@
-v1.0.4^v1.0.4 Bug Fixes|- Fixed: If steamcmd command line was manually changed, util kept resetting it.|-Config Window: Config File defaulted to .xml instead of .yaml.|-If player name ended with a space, Discord kept posting "New Player" message.
+v1.0.5^v1.0.5 Bug Fix: Now closes EAH|- Fixed: EAH failed to close. Util now closes EAH during updates and restarts, if desired.

@@ -1,11 +1,11 @@
 #Region ;**** Directives created by AutoIt3Wrapper_GUI ****
 #AutoIt3Wrapper_Icon=Resources\phoenixtray.ico
-#AutoIt3Wrapper_Outfile=Builds\EmpyrionServerUpdateUtility_v1.0.4.exe
+#AutoIt3Wrapper_Outfile=Builds\EmpyrionServerUpdateUtility_v1.0.5.exe
 #AutoIt3Wrapper_Res_Comment=By Phoenix125 based on Dateranoth's ConanServerUtility v3.3.0-Beta.3
 #AutoIt3Wrapper_Res_Description=Empyrion Dedicated Server Update Utility
-#AutoIt3Wrapper_Res_Fileversion=1.0.4
+#AutoIt3Wrapper_Res_Fileversion=1.0.5
 #AutoIt3Wrapper_Res_ProductName=EmpyrionServerUpdateUtility
-#AutoIt3Wrapper_Res_ProductVersion=1.0.4
+#AutoIt3Wrapper_Res_ProductVersion=1.0.5
 #AutoIt3Wrapper_Res_CompanyName=http://www.Phoenix125.com
 #AutoIt3Wrapper_Res_LegalCopyright=http://www.Phoenix125.com
 #AutoIt3Wrapper_Res_Language=1033
@@ -45,11 +45,11 @@ Opt("GUIResizeMode", $GUI_DOCKLEFT + $GUI_DOCKTOP)
 
 ; *** End added by AutoIt3Wrapper ***
 
-$aUtilVerStable = "v1.0.4" ; (2020-09-07)
-$aUtilVerBeta = "v1.0.4" ; (2020-09-07)
+$aUtilVerStable = "v1.0.5" ; (2020-12-12)
+$aUtilVerBeta = "v1.0.5" ; (2020-12-12)
 $aUtilVersion = $aUtilVerStable
 Global $aUtilVerNumber = 0
-; 0 = v1.0.0/1/2/3
+; 0 = v1.0.0/1/2/3/4/5
 
 ;**** Directives created by AutoIt3Wrapper_GUI ****
 ;Originally written by Dateranoth for use and modified for Empyrion by Phoenix125.com
@@ -1267,12 +1267,14 @@ Func _CloseEAH()
 	If $aEAH_Use <> "Never" Then
 		Local $tPID = _CheckIfProcessRunning($aEAH_Exe, $aEAH_Dir)
 		If $tPID > 0 Then
-			Local $tReturn = ProcessWaitClose($tPID, 2)
+			Local $tReturn = ProcessClose($tPID)
 			If $tReturn = 0 Then
-				LogWrite(" [EAH] Failed to properly close " & $aEAH_Exe & ".")
+				LogWrite(" [EAH] (PID:" & $tPID & ") Failed to properly close " & $aEAH_Exe & " at [" & $aEAH_Dir & "]")
 			Else
-				LogWrite(" [EAH] " & $aEAH_Name & " closed.")
+				LogWrite(" [EAH] (PID:" & $tPID & ") " & $aEAH_Name & " closed.")
 			EndIf
+		Else
+			LogWrite(" [EAH] (PID:" & $tPID & ") Failed to find running EAH process " & $aEAH_Exe & " at [" & $aEAH_Dir & "]")
 		EndIf
 		IniWrite($aUtilCFGFile, "CFG", "EAH_PID", "0")
 	EndIf
@@ -1669,6 +1671,7 @@ Func CloseServer($ip, $port, $pass, $tNoSplashOff = "no")
 	EndIf
 	IniWrite($aUtilCFGFile, "CFG", "PID", "0")
 	If $aEAH_Close Or $aEAH_Use = "Always" Then _CloseEAH()
+	$aEAH_Close = False
 	If $tNoSplashOff = "no" Then _SplashOff()
 	If $aSteamUpdateNow Then SteamUpdate()
 	$aRebootConfigUpdate = "no"
@@ -2190,7 +2193,6 @@ Func GetInstalledVersion($sGameDir)
 EndFunc   ;==>GetInstalledVersion
 
 Func UpdateCheck($tAsk, $tSplash = 0, $tShowIfNoUpdate = False)
-	$aEAH_Close = False
 	$aSteamUpdateNow = False
 	If $aUpdateSource = "1" Then
 		If $aFirstBoot Or $tAsk Then
