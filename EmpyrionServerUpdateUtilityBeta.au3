@@ -1,11 +1,11 @@
 #Region ;**** Directives created by AutoIt3Wrapper_GUI ****
 #AutoIt3Wrapper_Icon=Resources\phoenixtray.ico
-#AutoIt3Wrapper_Outfile=Builds\EmpyrionServerUpdateUtility_v1.0.5.exe
+#AutoIt3Wrapper_Outfile=Builds\EmpyrionServerUpdateUtility_v1.0.7.exe
 #AutoIt3Wrapper_Res_Comment=By Phoenix125 based on Dateranoth's ConanServerUtility v3.3.0-Beta.3
 #AutoIt3Wrapper_Res_Description=Empyrion Dedicated Server Update Utility
-#AutoIt3Wrapper_Res_Fileversion=1.0.5
+#AutoIt3Wrapper_Res_Fileversion=1.0.7
 #AutoIt3Wrapper_Res_ProductName=EmpyrionServerUpdateUtility
-#AutoIt3Wrapper_Res_ProductVersion=1.0.5
+#AutoIt3Wrapper_Res_ProductVersion=1.0.7
 #AutoIt3Wrapper_Res_CompanyName=http://www.Phoenix125.com
 #AutoIt3Wrapper_Res_LegalCopyright=http://www.Phoenix125.com
 #AutoIt3Wrapper_Res_Language=1033
@@ -45,11 +45,13 @@ Opt("GUIResizeMode", $GUI_DOCKLEFT + $GUI_DOCKTOP)
 
 ; *** End added by AutoIt3Wrapper ***
 
-$aUtilVerStable = "v1.0.5" ; (2020-12-12)
-$aUtilVerBeta = "v1.0.5" ; (2020-12-12)
+$aUtilVerStable = "v1.0.7" ; (2023-07-14)
+$aUtilVerBeta = "v1.0.7" ; (2023-07-14)
 $aUtilVersion = $aUtilVerStable
-Global $aUtilVerNumber = 0
+Global $aUtilVerNumber = 2
 ; 0 = v1.0.0/1/2/3/4/5
+; 1 = v1.0.6
+; 2 = v1.0.7
 
 ;**** Directives created by AutoIt3Wrapper_GUI ****
 ;Originally written by Dateranoth for use and modified for Empyrion by Phoenix125.com
@@ -63,7 +65,7 @@ Global $aServerProcessName = "EmpyrionDedicated.exe"
 Global Const $aSteamAppID = "530870"
 Global $aGameName = "Empyrion"
 Global $aGameCreators = "Eleon"
-Global $aTelnetShutdown = "saveandexit"
+Global $aTelnetShutdown = "saveandexit 0"
 Global $aTelnetKeepAliveCMD = "stats"
 Global $aTelnetKeepAliveReponse = "GameName"
 Global $aTelnetSayCMD = "say"
@@ -200,6 +202,9 @@ $aServerUpdateLinkDLBeta = "http://www.phoenix125.com/share/" & StringLower($aGa
 Global $aShowUpdate = False
 Global $aTelnetIP, $aTelnetPort, $aTelnetPass
 Global $aPlayerCountErr = False
+Global $aServerCrashMsgSentFailedTF = False
+Global $aServerCrashMsgSentRestartTF = False
+Global $aServerShuttingDownTF = False
 
 #EndRegion ;**** Global Variables ****
 Global Enum $WinHttpRequestOption_UserAgentString, _
@@ -235,6 +240,25 @@ If FileExists($aIniFile) Then _FileWriteToLine($aIniFile, 3, "Version  :  " & $a
 Global $aCFGLastVerNumber = IniRead($aUtilCFGFile, "CFG", "LastVerNumber", $aUtilVerNumber)
 IniWrite($aUtilCFGFile, "CFG", "LastVerNumber", $aUtilVerNumber)
 Local $tUpdateINI = False
+If $aCFGLastVerNumber < 1 Then
+	Global $aServerDirLocal = IniRead($aIniFile, " --------------- GAME SERVER CONFIGURATION --------------- ", $aServerShort & " DIR ###", "Temp")
+	IniWrite($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", "EAH exe folder ###", $aServerDirLocal & "\DedicatedServer\EmpyrionAdminHelper")
+	IniWrite($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", "EAH exe filename ###", $aEAH_Exe)
+	$tUpdateINI = True
+EndIf
+If $aCFGLastVerNumber < 2 Then
+	Global $aEAH_Use = "Always"
+	IniWrite($aIniFile, " --------------- GAME SERVER CONFIGURATION --------------- ", "Start and stop EmpyrionAdminHelper (EAH) with Server? (Needed for some Steam updates) (Always/Updates/Never) ###", $aEAH_Use)
+	Global $aQueryYN = "yes"
+	IniWrite($aIniFile, " --------------- KEEP ALIVE WATCHDOG --------------- ", "Use Query Port to check if server is alive? (yes/no) ###", $aQueryYN)
+	IniWrite($aIniFile, " --------------- DISCORD MESSAGES --------------- ", "Announcement when server crash is first detected by Watchdog ###", ":warning: Server crash detected. Server will restart if no response in one minute.")
+	IniWrite($aIniFile, " --------------- DISCORD MESSAGES --------------- ", "Announcement when server crash is forcing a server roboot by Watchdog ###", ":exclamation::exclamation: Server crash detected. RESTARTING SERVER :exclamation::exclamation:")
+	IniWrite($aIniFile, " --------------- DISCORD INTEGRATION --------------- ", "Send Discord message when Watchdog first detects server crash? (yes/no) ###", "yes")
+	IniWrite($aIniFile, " --------------- DISCORD INTEGRATION --------------- ", "Send Discord message when Watchdog detects server crash and will restart server? (yes/no) ###", "yes")
+	Global $aWatchdogWaitServerUpdate = IniRead($aIniFile, " --------------- KEEP ALIVE WATCHDOG ---------------", "Pause watchdog for _ minutes after server updated to allow map generation (1-360) ###", "5")
+	IniWrite($aIniFile, " --------------- KEEP ALIVE WATCHDOG ---------------", "Pause watchdog for _ minutes after server updated to allow for update processes to complete (1-360) ###", $aWatchdogWaitServerUpdate)
+	$tUpdateINI = True
+EndIf
 
 If $tUpdateINI Then
 	ReadUini($aIniFile, $aLogFile)
@@ -253,7 +277,6 @@ Global $aShowConfigSplash = True
 ReadUini($aIniFile, $aLogFile)
 $aShowConfigSplash = False
 Global $aServerPID = PIDReadServer($aSplash)
-Global $aEAH_Dir = $aServerDirLocal & "\DedicatedServer\EmpyrionAdminHelper"
 If $aEAH_Use <> "Never" Then _CheckForExistingEAH($aSplash)
 Global $gWatchdogServerStartTimeCheck = IniRead($aUtilCFGFile, "CFG", "Last Server Start", "no")
 If $gWatchdogServerStartTimeCheck = "no" Then
@@ -285,15 +308,14 @@ ControlSetText($aSplash, "", "Static1", $aUtilName & " " & $aUtilVersion & " sta
 Global $sConfigPath = $aServerDirLocal & "\" & $aConfigFile
 Local $sFileExists = FileExists($sConfigPath)
 If $sFileExists = 0 Then
-	LogWrite("!!! ERROR !!! Could not find " & $sConfigPath)
+	LogWrite(" [Config] !!! ERROR !!! Could not find " & $sConfigPath)
 	_SplashOff()
-
-	Local $xFileName = _PathSplit($sConfigPath, "", "", "", "")
+	Local $xFileName = _PathSplitEx($sConfigPath)
 	Local $tFileName = $xFileName[3] & $xFileName[4]
 	$tMsg = MsgBox($MB_YESNO, $aConfigFile & " Not Found", "Could not find " & $aGameName & " Config: [" & $tFileName & "]" & @CRLF & @CRLF & $sConfigPath & @CRLF & @CRLF & _
 			"This is normal for New Install" & @CRLF & "Do you wish to continue with installation?" & @CRLF & "(YES) Continue with installation" & @CRLF & "(NO) Open Config Window", 60)
 	If $tMsg = 7 Then
-		LogWrite("!!! ERROR !!! Could not find " & $sConfigPath & ". Config Window opened.")
+		LogWrite(" [Config] !!! ERROR !!! Could not find " & $sConfigPath & ". Config Window opened.")
 		GUI_Config(False, $aSplash)
 	Else
 		$aSplash = _Splash($aUtilName & " started.")
@@ -302,6 +324,8 @@ EndIf
 Global $aServerTelnetReboot = "no"
 Local $tReturn = _ImportServerConfig()
 If $tReturn Then _ImportServerConfig()
+Local $x1Return = _GetEAHDefaultConfigFile()
+If $x1Return[0] <> $aConfigFile Then LogWrite(" [Config] !!! NOTE !!! EAH is set to use config file [" & $x1Return[0] & "] & telnet port [" & $x1Return[2] & "]. ESUU is set to use config file [" & $aConfigFile & "] PLEASE UPDATE ESUU's CONFIG TO USE DESIRED YAML CONFIG. ")
 #EndRegion ;**** Startup Checks. Initial Log, Read INI, Check for Correct Paths, Check Remote Restart is bound to port. ****
 
 If $aUseSteamCMD = "yes" Then
@@ -312,7 +336,7 @@ If $aUseSteamCMD = "yes" Then
 		DirCreate($aSteamCMDDir) ; to extract to
 		_ExtractZip(@ScriptDir & "\steamcmd.zip", "", "steamcmd.exe", $aSteamCMDDir)
 		FileDelete(@ScriptDir & "\steamcmd.zip")
-		LogWrite(" [Steam Update] Running SteamCMD. [steamcmd.exe +quit]")
+		LogWrite(" [Update] Running SteamCMD. [steamcmd.exe +quit]")
 		RunWait("" & $aSteamCMDDir & "\steamcmd.exe +quit", @SW_MINIMIZE)
 		If Not FileExists($aSteamCMDDir & "\steamcmd.exe") Then
 			MsgBox(0x0, "SteamCMD Not Found", "Could not find steamcmd.exe at " & $aSteamCMDDir, 60)
@@ -464,7 +488,7 @@ While True ;**** Loop Until Closed ****
 				Case 0
 					If ProcessExists($aServerPID) And ($aBeginDelayedShutdown = 0) Then
 						Local $MEM = ProcessGetStats($aServerPID, 0)
-						LogWrite(" [" & $aGameName & " (PID: " & $aServerPID & ")] [Work Memory:" & $MEM[0] & " | Peak Memory:" & $MEM[1] & "] " & $sRestart)
+						LogWrite(" [Server] (PID: " & $aServerPID & ") [Work Memory:" & $MEM[0] & " | Peak Memory:" & $MEM[1] & "] " & $sRestart)
 						If ($sUseDiscordBotDaily = "yes") Or ($sUseDiscordBotUpdate = "yes") Or ($sUseTwitchBotDaily = "yes") Or ($sUseTwitchBotUpdate = "yes") Or ($sInGameAnnounce = "yes") Then
 							;						Local $aMaintenanceMsg = """WARNING! " & $sAnnounceRemoteRestartMessage & " Restarting server in " & $aDelayShutdownTime & " minutes...""" & @CRLF
 							$aBeginDelayedShutdown = 1
@@ -476,7 +500,7 @@ While True ;**** Loop Until Closed ****
 						EndIf
 					EndIf
 				Case 1 To 4
-					LogWrite(" " & $sRestart & @CRLF)
+					LogWrite(" [Server] " & $sRestart & @CRLF)
 			EndSwitch
 		EndIf
 		#EndRegion ;**** Listen for Remote Restart Request ****
@@ -488,7 +512,7 @@ While True ;**** Loop Until Closed ****
 				$aBeginDelayedShutdown = 0
 				$aSplash = _Splash("Starting server.")
 				If $aExecuteExternalScript = "yes" Then
-					LogWrite(" Executing External Script " & $aExternalScriptDir & "\" & $aExternalScriptName)
+					LogWrite(" [ Util ] Executing External Script " & $aExternalScriptDir & "\" & $aExternalScriptName)
 					If $aExternalScriptAnnounceWait = "no" Then
 						If $aExternalScriptHideYN = "yes" Then
 							Run($aExternalScriptFile, @SW_HIDE)
@@ -521,7 +545,7 @@ While True ;**** Loop Until Closed ****
 					_Splash("Running server found. PID:" & $aServerPID, 2500)
 				Else
 					$aServerPID = Run($tRun, $aServerDirLocal, @SW_HIDE)
-					LogWrite(" [Server] **** Server Started **** PID(" & $aServerPID & ")", " [Server] **** Server Started **** PID(" & $aServerPID & ") [" & $tRun & "]")
+					LogWrite(" [Server] ******** Server Started ******** PID(" & $aServerPID & ")", " [Server] ******** Server Started ******** PID(" & $aServerPID & ") [" & $tRun & "]")
 					$gWatchdogServerStartTimeCheck = _NowCalc()
 					IniWrite($aUtilCFGFile, "CFG", "Last Server Start", $gWatchdogServerStartTimeCheck)
 					ControlSetText($aSplash, "", "Static1", "Server launcher started." & @CRLF & @CRLF & "Waiting for server to start")
@@ -534,17 +558,19 @@ While True ;**** Loop Until Closed ****
 						Sleep(4000)
 					Else
 						$aServerPID = Run($tRun, $aServerDirLocal, @SW_HIDE)
-						LogWrite(" [Server] **** Server Started **** PID(" & $aServerPID & ")", " [Server] **** Server Started **** PID(" & $aServerPID & ") [" & $tRun & "]")
+						LogWrite(" [Server] ******** Server Started ******** PID(" & $aServerPID & ")", " [Server] ******** Server Started ******** PID(" & $aServerPID & ") [" & $tRun & "]")
 						$gWatchdogServerStartTimeCheck = _NowCalc()
 						IniWrite($aUtilCFGFile, "CFG", "Last Server Start", $gWatchdogServerStartTimeCheck)
 						ControlSetText($aSplash, "", "Static1", "Server not found. Launcher started again.")
 						Sleep(2000)
 					EndIf
+					$aServerCrashMsgSentFailedTF = False
+					$aServerCrashMsgSentRestartTF = False
 					_SplashOff()
-
 				EndIf
 				$gTelnetTimeCheck0 = _NowCalc()
 				$tQueryLogReadDoneTF = False
+				$aServerShuttingDownTF = False
 ;~ 				$aFPCount = $aFPCount + 1
 ;~ 				If ($aFPCount = 3) And ($aFPAutoUpdateYN = "yes") Then FPRun()
 
@@ -674,12 +700,12 @@ While True ;**** Loop Until Closed ****
 				$iMsgBoxAnswer = MsgBox(262405, "Server Failed to Start", "The server tried to start, but it failed. Try again? This will automatically close in 60 seconds and try to start again.", 60)
 				Select
 					Case $iMsgBoxAnswer = 4 ;Retry
-						LogWrite(" [" & $aGameName & " (PID: " & $aServerPID & ")] Server Failed to Start. User Initiated a Restart Attempt.")
+						LogWrite(" [Server] (PID: " & $aServerPID & ") Server Failed to Start. User Initiated a Restart Attempt.")
 					Case $iMsgBoxAnswer = 2 ;Cancel
-						LogWrite(" [" & $aGameName & " (PID: " & $aServerPID & ")] Server Failed to Start - " & $aUtilName & " Shutdown - Initiated by User")
+						LogWrite(" [Server] (PID: " & $aServerPID & ") Server Failed to Start - " & $aUtilName & " Shutdown - Initiated by User")
 						_ExitUtil()
 					Case $iMsgBoxAnswer = -1 ;Timeout
-						LogWrite(" [" & $aGameName & " (PID: " & $aServerPID & ")] Server Failed to Start. Script Initiated Restart Attempt after 60 seconds of no User Input.")
+						LogWrite(" [Server] (PID: " & $aServerPID & ") Server Failed to Start. Script Initiated Restart Attempt after 60 seconds of no User Input.")
 				EndSelect
 			EndIf
 			IniWrite($aUtilCFGFile, "CFG", "PID", $aServerPID)
@@ -687,7 +713,7 @@ While True ;**** Loop Until Closed ****
 			If $aExMemRestart = "yes" Then
 				Local $MEM = ProcessGetStats($aServerPID, 0)
 				If $MEM[0] > $aExMemAmt And $aExMemRestart = "yes" Then
-					LogWrite(" [" & $aGameName & " (PID: " & $aServerPID & ")] Work Memory:" & $MEM[0] & " Peak Memory:" & $MEM[1] & " Excessive Memory Use - Restart requested by " & $aUtilName & " Script", " [" & $aGameName & " (PID: " & $aServerPID & ")] Work Memory:" & $MEM[0] & " Peak Memory:" & $MEM[1])
+					LogWrite(" [Server] (PID: " & $aServerPID & ") Work Memory:" & $MEM[0] & " Peak Memory:" & $MEM[1] & " Excessive Memory Use - Restart requested by " & $aUtilName & " Script", " [Server] (PID: " & $aServerPID & ") Work Memory:" & $MEM[0] & " Peak Memory:" & $MEM[1])
 					CloseServer($aTelnetIP, $aTelnetPort, $aTelnetPass)
 				EndIf
 				$aTimeCheck1 = _NowCalc()
@@ -697,12 +723,12 @@ While True ;**** Loop Until Closed ****
 			Local $tPID = _CheckIfProcessRunning($aEAH_Exe, $aEAH_Dir)
 			If $tPID > 0 Then
 				$aEAH_PID = $tPID
-				LogWrite(" [EAH] Existing " & $aEAH_Name & " process found. PID(" & $aEAH_PID & ")")
+				LogWrite(" [ EAH  ] Existing " & $aEAH_Name & " process found. PID(" & $aEAH_PID & ")")
 				IniWrite($aUtilCFGFile, "CFG", "EAH_PID", $aEAH_PID)
 			Else
 				Local $tRun = '"' & $aEAH_Dir & '\' & $aEAH_Exe & '"'
 				$aEAH_PID = Run($tRun)
-				LogWrite(" [EAH] " & $aEAH_Name & " started. PID(" & $aEAH_PID & ")", " [EAH] " & $aEAH_Name & " started. PID(" & $aEAH_PID & ") " & $tRun)
+				LogWrite(" [ EAH  ] " & $aEAH_Name & " started. PID(" & $aEAH_PID & ")", " [ EAH  ] " & $aEAH_Name & " started. PID(" & $aEAH_PID & ") " & $tRun)
 				IniWrite($aUtilCFGFile, "CFG", "EAH_PID", $aEAH_PID)
 			EndIf
 		EndIf
@@ -726,10 +752,10 @@ While True ;**** Loop Until Closed ****
 		EndIf
 		#EndRegion ;**** Show Online Players ****
 		#Region ;**** Restart Server Every X Days and X Hours & Min****
-		If (($aRestartDaily = "yes") And ((_DateDiff('n', $aTimeCheck2, _NowCalc())) >= 1) And (DailyRestartCheck($aRestartDays, $aRestartHours, $aRestartMin)) And ($aBeginDelayedShutdown = 0)) Then
+		If (($aRestartDaily = "yes") And ((_DateDiff('n', $aTimeCheck2, _NowCalc())) >= 1) And (DailyRestartCheck($aRestartDays, $aRestartHours, $aRestartMin)) And ($aBeginDelayedShutdown = 0)) And $aServerShuttingDownTF = False Then
 			If ProcessExists($aServerPID) Then
 				Local $MEM = ProcessGetStats($aServerPID, 0)
-				LogWrite(" [" & $aGameName & " (PID: " & $aServerPID & ")] Work Memory:" & $MEM[0] & " Peak Memory:" & $MEM[1] & " - Daily restart requested by " & $aUtilName & ".")
+				LogWrite(" [Server] (PID: " & $aServerPID & ") Work Memory:" & $MEM[0] & " Peak Memory:" & $MEM[1] & " - Daily restart requested by " & $aUtilName & ".")
 				If $aDelayShutdownTime Not = 0 Then
 					$aBeginDelayedShutdown = 1
 					$aRebootReason = "daily"
@@ -753,48 +779,61 @@ While True ;**** Loop Until Closed ****
 		#EndRegion ;**** Backup Every X Days and X Hours & Min****
 
 		#Region ;**** KeepServerAlive Telnet Check ****
-		If ($aTelnetCheckYN = "yes") And (_DateDiff('s', $gTelnetTimeCheck0, _NowCalc()) >= $aTelnetCheckSec) Then
+		If ($aTelnetCheckYN = "yes") And (_DateDiff('s', $gTelnetTimeCheck0, _NowCalc()) >= $aTelnetCheckSec) And $aServerShuttingDownTF = False Then
 			Local $tSkipUpdateCheckTF = False
 			Local $tSkipStartCheckTF = False
 			Local $tDiffUpdate = _DateDiff('n', $gServerUpdatedTimeCheck0, _NowCalc())
 			Local $tDiffStart = _DateDiff('n', $gWatchdogServerStartTimeCheck, _NowCalc())
 			If $tDiffUpdate <= $aWatchdogWaitServerUpdate Then
 				$tSkipUpdateCheckTF = True
-				LogWrite("", " [Telnet] KeepAlive check SKIPPED due to Server Update: " & Int($aWatchdogWaitServerUpdate - $tDiffUpdate) & " minutes remain.")
+				Local $tTxt = Int($aWatchdogWaitServerUpdate - $tDiffUpdate)
+				If $tTxt = 0 Then $tTxt = "<1"
+				LogWrite("", " [Telnet] KeepAlive check SKIPPED due to server update: " & $tTxt & " minute(s) remain.")
 			EndIf
 			If $tDiffStart <= $aWatchdogWaitServerStart Then
 				$tSkipStartCheckTF = True
-				LogWrite("", " [Telnet] KeepAlive check SKIPPED due to Server Start: " & Int($aWatchdogWaitServerStart - $tDiffStart) & " minutes remain.")
+				Local $tTxt = Int($aWatchdogWaitServerStart - $tDiffStart)
+				If $tTxt = 0 Then $tTxt = "<1"
+				LogWrite("", " [Telnet] KeepAlive check SKIPPED due to server start: " & $tTxt & " minute(s) remain.")
 			EndIf
 			If $tSkipUpdateCheckTF = False And $tSkipStartCheckTF = False Then
-				For $i = 1 To 6
+				For $i = 1 To 5
 					$aReply = _PlinkSend($aTelnetKeepAliveCMD)
-					If $i = 6 Then
-						$tFailedCountTelnet += 1
-						If $tFailedCountTelnet > $aWatchdogAttemptsBeforeRestart Then
-							LogWrite(" [Telnet] KeepAlive check FAILED " & $aWatchdogAttemptsBeforeRestart & " attempts. Restarting server.")
-							CloseServer($aTelnetIP, $aTelnetPort, $aTelnetPass)
-							ExitLoop
-						Else
-							LogWrite(" [Telnet] KeepAlive check FAILED. Attempt " & $tFailedCountTelnet & " of " & $aWatchdogAttemptsBeforeRestart & ".")
-						EndIf
-					EndIf
 					If StringInStr($aReply, $aTelnetKeepAliveReponse) = 0 Then
-						Sleep(1000)
 						LogWrite("", " [Telnet] KeepAlive check failed. Count:" & $i & " of 5")
+						Sleep(1000)
 					Else
 						$tFailedCountTelnet = 0
 						ExitLoop
 					EndIf
+					If $i = 5 Then
+						$tFailedCountTelnet += 1
+						If $tFailedCountTelnet = $aWatchdogAttemptsBeforeRestart Then
+							LogWrite(" [Telnet] KeepAlive check (series of 5) FAILED " & $aWatchdogAttemptsBeforeRestart & " attempt(s). RESTARTING SERVER.")
+							Local $x1Return = _GetEAHDefaultConfigFile()
+							If $x1Return[0] <> $aConfigFile Then LogWrite(" [Config] !!! NOTE !!! EAH is set to use config file [" & $x1Return[0] & "] & telnet port [" & $x1Return[2] & "]. ESUU is set to use config file [" & $aConfigFile & "] & telnet port [" & $aTelnetPort & "]. PLEASE UPDATE ESUU's CONFIG TO USE DESIRED YAML CONFIG. ")
+							If $aServerCrashMsgSentRestartTF = False And $sUseDiscordBotServerCrashMsgRestartYN <> "no" Then _SendDiscordCrash($sDiscordServerCrashMsgRestart)
+							$aServerCrashMsgSentRestartTF = True
+							$tFailedCountTelnet = 0
+							CloseServer($aTelnetIP, $aTelnetPort, $aTelnetPass)
+							ExitLoop
+						Else
+							LogWrite(" [Telnet] KeepAlive check (series of 5) FAILED attempt " & $tFailedCountTelnet & " of " & $aWatchdogAttemptsBeforeRestart & ".")
+							Local $x1Return = _GetEAHDefaultConfigFile()
+							If $x1Return[0] <> $aConfigFile Then LogWrite(" [Config] !!! NOTE !!! EAH is set to use config file [" & $x1Return[0] & "] & telnet port [" & $x1Return[2] & "]. ESUU is set to use config file [" & $aConfigFile & "] & telnet port [" & $aTelnetPort & "]. PLEASE UPDATE ESUU's CONFIG TO USE DESIRED YAML CONFIG. ")
+							If $aServerCrashMsgSentFailedTF = False And $sUseDiscordBotServerCrashMsgFailedYN <> "no" Then _SendDiscordCrash($sDiscordServerCrashMsgFailed)
+							$aServerCrashMsgSentFailedTF = True
+						EndIf
+					EndIf
 				Next
-				If $i < 6 Then LogWrite("", " [Telnet] KeepAlive check OK.")
+				If $i < 6 And $aServerShuttingDownTF = False Then LogWrite("", " [Telnet] KeepAlive check OK.")
 			EndIf
 			$gTelnetTimeCheck0 = _NowCalc()
 		EndIf
 		#EndRegion ;**** KeepServerAlive Telnet Check ****
 
 		#Region ;**** KeepServerAlive Query Port Check ****
-		If ($aQueryYN = "yes") And (_DateDiff('s', $gQueryTimeCheck0, _NowCalc()) >= $aQueryCheckSec) Then
+		If ($aQueryYN = "yes") And (_DateDiff('s', $gQueryTimeCheck0, _NowCalc()) >= $aQueryCheckSec) And $aServerShuttingDownTF = False Then
 			$tQueryResponseOK = _QueryCheck(True)
 			$gQueryTimeCheck0 = _NowCalc()
 		EndIf
@@ -810,7 +849,7 @@ While True ;**** Loop Until Closed ****
 		EndIf
 
 		#Region ;**** Check for Update every X Minutes ****
-		If ($aCheckForUpdate = "yes") And ((_DateDiff('n', $aTimeCheck0, _NowCalc())) >= $aUpdateCheckInterval) And ($aBeginDelayedShutdown = 0) Then
+		If ($aCheckForUpdate = "yes") And ((_DateDiff('n', $aTimeCheck0, _NowCalc())) >= $aUpdateCheckInterval) And ($aBeginDelayedShutdown = 0) And $aServerShuttingDownTF = False Then
 			Local $bRestart = UpdateCheck(False)
 			If $bRestart And (($sUseDiscordBotDaily = "yes") Or ($sUseDiscordBotUpdate = "yes") Or ($sUseTwitchBotDaily = "yes") Or ($sUseTwitchBotUpdate = "yes") Or ($sInGameAnnounce = "yes")) Then
 				$aBeginDelayedShutdown = 1
@@ -1000,7 +1039,6 @@ WEnd
 #Region ; **** Gamercide Shutdown Protocol ****
 Func Gamercide()
 	_SplashOff()
-
 	Local $aMsg = "Thank you for using " & $aUtilName & "." & @CRLF & "Please report any problems or comments to: " & @CRLF & "Discord: http://discord.gg/EU7pzPs or " & @CRLF & _
 			"Forum: http://phoenix125.createaforum.com/index.php. " & @CRLF & @CRLF & "Visit http://www.Phoenix125.com"
 	If @exitMethod <> 1 Then
@@ -1009,43 +1047,42 @@ Func Gamercide()
 				"Click (YES) to shutdown server and exit utility." & @CRLF & _
 				"Click (NO) or (CANCEL) to exit utility but leave server running.", 60)
 		; ----------------------------------------------------------
-		If $Shutdown = 6 Then
+		If $Shutdown = 6 Then ; Yes
+			LogWrite(" [ Util ] Util exiting with server shutdown - Initiated by User when closing " & $aUtilityVer & " Script")
 			LogWrite(" [Server] Server Shutdown - Initiated by User when closing " & $aUtilityVer & " Script")
 			CloseServer($aTelnetIP, $aTelnetPort, $aTelnetPass)
 			_SplashOff()
-
 			If $aRemoteRestartUse = "yes" Then
 				TCPShutdown()
 			EndIf
 			MsgBox(4096, $aUtilityVer, $aMsg, 20)
-			LogWrite(" [Server] Stopped by User")
+			LogWrite(" [ Util ] Stopped by User")
 			IniWrite($aUtilCFGFile, "CFG", "PID", "0")
 			_ExitUtil()
 			; ----------------------------------------------------------
-		ElseIf $Shutdown = 7 Then
-			LogWrite(" [Server] Server Shutdown - Initiated by User when closing " & $aUtilityVer & " Script")
+		ElseIf $Shutdown = 7 Then ; No
+			LogWrite(" [ Util ] Util exiting but server will remain running - Initiated by User when closing " & $aUtilityVer & " Script")
 			If $aRemoteRestartUse = "yes" Then
 				TCPShutdown()
 			EndIf
 			IniWrite($aUtilCFGFile, "CFG", "PID", $aServerPID)
 			MsgBox(4096, $aUtilityVer, $aMsg, 20)
-			LogWrite(" [Server] Stopped by User")
+			LogWrite(" [ Util ] Stopped by User")
 			_ExitUtil()
 			; ----------------------------------------------------------
-		ElseIf $Shutdown = 2 Then
-			LogWrite(" [Server] Server Shutdown - Initiated by User when closing " & $aUtilityVer & " Script")
+		ElseIf $Shutdown = 2 Then ; Cancel
+			LogWrite(" [ Util ] Util exiting but server will remain running - Initiated by User when closing " & $aUtilityVer & " Script")
 			If $aRemoteRestartUse = "yes" Then
 				TCPShutdown()
 			EndIf
 			IniWrite($aUtilCFGFile, "CFG", "PID", $aServerPID)
 			MsgBox(4096, $aUtilityVer, $aMsg, 20)
-			LogWrite(" [Server] Stopped by User")
+			LogWrite(" [ Util ] Stopped by User")
 			; ----------------------------------------------------------
 		EndIf
 	Else
-		LogWrite(" [Server] Server Shutdown - Initiated by User when closing " & $aUtilityVer & " Script")
+		LogWrite(" [ Util ] Util exiting - Initiated by User when closing " & $aUtilityVer & " Script")
 		_SplashOff()
-
 		_ExitUtil()
 	EndIf
 EndFunc   ;==>Gamercide
@@ -1058,37 +1095,19 @@ Func _SteamCMDCommandlineRead()
 	$aSteamUpdateCommandline = _ArrayToString(_StringBetween($tRead, '<--- BEGIN SteamCMD CODE --->' & @CRLF, '<--- END SteamCMD CODE --->'))
 EndFunc   ;==>_SteamCMDCommandlineRead
 Func _SteamCMDCreate($tForceReset = False)
-;~ 	Local $ServExp = ""
-;~ 	If $aServerVer = "public" Then
-;~ 	Else
-;~ 		$ServExp = " -beta " & $aServerVer
-;~ 	EndIf
-;~ 	Global $aBatchDIR = @ScriptDir & "\BatchFiles"
-;~ 	DirCreate($aBatchDIR)
-;~ 	Global $aSteamUpdateCMDValY = $aBatchDIR & "\Update_Empyrion_Validate_YES.bat"
-;~ 	Global $aSteamUpdateCMDValN = $aBatchDIR & "\Update_Empyrion_Validate_NO.bat"
 	If $aSteamCMDUserName = "" Then
 		Local $tLogin = "anonymous"
 	Else
 		Local $tLogin = $aSteamCMDUserName & " " & $aSteamCMDPassword
 	EndIf
-;~ 	Local $tCmd = 'SET steampath=' & $aSteamCMDDir & @CRLF & _
-;~ 			'SET gamepath=' & $aServerDirLocal & @CRLF & _
-;~ 			'"%steampath%\steamcmd.exe" +@ShutdownOnFailedCommand 1 +@NoPromptForPassword 1 +login ' & $tLogin & ' ' & $aSteamCMDPassword & _
-;~ 			' +force_install_dir "%gamepath%" +app_update ' & $aSteamAppID & ' ' & $ServExp
-;~ 	If $aValidate = "yes" Then
-;~ 		$tCmd &= " validate +quit"
-;~ 	Else
-;~ 		$tCmd &= " +quit"
-;~ 	EndIf
 	Local $tTxtValY = "start """ & $aUtilName & """ /wait /high """ & $aSteamCMDDir & "\steamcmd.exe"" ^" & @CRLF & _
-			"+login " & $tLogin & " ^" & @CRLF & _
 			"+force_install_dir """ & $aServerDirLocal & """ ^" & @CRLF & _
+			"+login " & $tLogin & " ^" & @CRLF & _
 			"+app_update " & $aSteamAppID & " validate ^" & @CRLF & _
 			"+quit"
 	Local $tTxtValN = "start """ & $aUtilName & """ /wait /high """ & $aSteamCMDDir & "\steamcmd.exe"" ^" & @CRLF & _
-			"+login " & $tLogin & " ^" & @CRLF & _
 			"+force_install_dir """ & $aServerDirLocal & """ ^" & @CRLF & _
+			"+login " & $tLogin & " ^" & @CRLF & _
 			"+app_update " & $aSteamAppID & " ^" & @CRLF & _
 			"+quit"
 	Local $ServExp = ""
@@ -1101,7 +1120,7 @@ Func _SteamCMDCreate($tForceReset = False)
 	FileDelete($aSteamUpdateCMDValN)
 	FileWrite($aSteamUpdateCMDValN, $tTxtValN)
 	If StringLen($aSteamUpdateCommandline) < 20 Or $tForceReset Then
-		If $aValidate = "yes" Then ;kim125er!
+		If $aValidate = "yes" Then
 			$aSteamUpdateCommandline = $tTxtValY
 		Else
 			$aSteamUpdateCommandline = $tTxtValN
@@ -1114,21 +1133,7 @@ Func _SteamCMDCreate($tForceReset = False)
 EndFunc   ;==>_SteamCMDCreate
 Func _SteamCMDBatchFilesCreate()
 	#Region ; SteamCMD Update Files Creation
-;~ 	FileDelete($aSteamUpdateCMDValY)
-;~ 	FileDelete($aSteamUpdateCMDValN)
 	FileDelete($aBatchDIR & "\Launch_" & $aGameName & ".bat")
-;~ 	If StringInStr($aSteamUpdateCommandline, "validate") Then
-;~ 		FileWrite($aSteamUpdateCMDValY, $aSteamUpdateCommandline)
-;~ 	Else
-;~ 		FileWrite($aSteamUpdateCMDValY, StringReplace($aSteamUpdateCommandline, "+quit", "vaidate +quit"))
-;~ 	EndIf
-;~ 	If StringInStr($aSteamUpdateCommandline, "validate") Then
-;~ 		FileWrite($aSteamUpdateCMDValN, StringReplace($aSteamUpdateCommandline, " validate", ""))
-;~ 	Else
-;~ 		FileWrite($aSteamUpdateCMDValN, $aSteamUpdateCommandline)
-;~ 	EndIf
-;~ 	Local $sDrive = "", $sDir = "", $sFileName = "", $sExtension = ""
-;~ 	Local $aPathSplit = _PathSplit($aServerDirLocal & "\" & $aServerEXE, $sDrive, $sDir, $sFileName, $sExtension)
 	If $aServerExtraCMD <> "" Then
 		Local $tExtraCMD = $aServerExtraCMD & " "
 	Else
@@ -1136,98 +1141,6 @@ Func _SteamCMDBatchFilesCreate()
 	EndIf
 	Local $tServerStart = """" & $aServerDirLocal & "\" & $aServerEXE & """ " & $aLaunchParams & " " & $tExtraCMD & $aConfigFile
 	FileWrite($aBatchDIR & "\Launch_" & $aGameName & ".bat", "Start """ & $aUtilName & """ " & $tServerStart & @CRLF & "Exit")
-
-;~ 	Local $xArray[85]
-;~ 	$xArray[0] = '@echo off'
-;~ 	$xArray[1] = 'Echo Starting ' & $aGameName & " Dedicated Server . . . '
-;~ 	$xArray[2] = '
-;~ 	$xArray[3] = 'rem -quit, -batchmode, -nographics: Unity commands'
-;~ 	$xArray[4] = 'rem -configfile			  : Allows server settings to be set up in an xml config file. Use no path if in same dir or full path.'
-;~ 	$xArray[5] = 'rem -dedicated                    : Has to be the last option to start the dedicated server.'
-;~ 	$xArray[6] = ''
-;~ 	$xArray[7] = 'set LOGTIMESTAMP='
-;~ 	$xArray[8] = ''
-;~ 	$xArray[9] = ''
-;~ 	$xArray[10] = 'IF EXIST 7DaysToDieServer.exe ('
-;~ 	$xArray[11] = '	set GAMENAME=7DaysToDieServer'
-;~ 	$xArray[12] = '	set LOGNAME=output_log_dedi'
-;~ 	$xArray[13] = ') ELSE ('
-;~ 	$xArray[14] = '	set GAMENAME=7DaysToDie'
-;~ 	$xArray[15] = '	set LOGNAME=output_log'
-;~ 	$xArray[16] = ')'
-;~ 	$xArray[17] = ''
-;~ 	$xArray[18] = ':: --------------------------------------------'
-;~ 	$xArray[19] = ':: REMOVE OLD LOGS (only keep latest 20)'
-;~ 	$xArray[20] = ''
-;~ 	$xArray[21] = 'for /f "tokens=* skip=19" %%F in (' & "'dir %GAMENAME%_Data\%LOGNAME%*.txt /o-d /tc /b'" & ") do del %GAMENAME%_Data\%%F"
-;~ 	$xArray[22] = ''
-;~ 	$xArray[23] = ''
-;~ 	$xArray[24] = ''
-;~ 	$xArray[25] = ':: --------------------------------------------'
-;~ 	$xArray[26] = ':: BUILDING TIMESTAMP FOR LOGFILE'
-;~ 	$xArray[27] = ''
-;~ 	$xArray[28] = ':: Check WMIC is available'
-;~ 	$xArray[29] = 'WMIC.EXE Alias /? >NUL 2>&1 || GOTO s_start'
-;~ 	$xArray[30] = ''
-;~ 	$xArray[31] = ':: Use WMIC to retrieve date and time'
-;~ 	$xArray[32] = 'FOR /F "skip=1 tokens=1-6" %%G IN (' & "'WMIC Path Win32_LocalTime Get Day^,Hour^,Minute^,Month^,Second^,Year /Format:table'" & ") DO ("
-;~ 	$xArray[33] = '	IF "%%~L"=="" goto s_done'
-;~ 	$xArray[34] = '	Set _yyyy=%%L'
-;~ 	$xArray[35] = '	Set _mm=00%%J'
-;~ 	$xArray[36] = '	Set _dd=00%%G'
-;~ 	$xArray[37] = '	Set _hour=00%%H'
-;~ 	$xArray[38] = '	Set _minute=00%%I'
-;~ 	$xArray[39] = '	Set _second=00%%K'
-;~ 	$xArray[40] = ')'
-;~ 	$xArray[41] = ':s_done'
-;~ 	$xArray[42] = ''
-;~ 	$xArray[43] = ':: Pad digits with leading zeros'
-;~ 	$xArray[44] = 'Set _mm=%_mm:~-2%'
-;~ 	$xArray[45] = 'Set _dd=%_dd:~-2%'
-;~ 	$xArray[46] = 'Set _hour=%_hour:~-2%'
-;~ 	$xArray[47] = 'Set _minute=%_minute:~-2%'
-;~ 	$xArray[48] = 'Set _second=%_second:~-2%'
-;~ 	$xArray[49] = ''
-;~ 	$xArray[50] = 'Set LOGTIMESTAMP=__%_yyyy%-%_mm%-%_dd%__%_hour%-%_minute%-%_second%'
-;~ 	$xArray[51] = ''
-;~ 	$xArray[52] = ':s_start'
-;~ 	$xArray[53] = ''
-;~ 	$xArray[54] = ''
-;~ 	$xArray[55] = ':: --------------------------------------------'
-;~ 	$xArray[56] = ':: STARTING SERVER'
-;~ 	$xArray[57] = ''
-;~ 	$xArray[58] = ''
-;~ 	$xArray[59] = 'echo|set /p="251570" > steam_appid.txt'
-;~ 	$xArray[60] = 'set SteamAppId=251570'
-;~ 	$xArray[61] = 'set SteamGameId=251570'
-;~ 	$xArray[62] = ''
-;~ 	$xArray[63] = 'set LOGFILE=%~dp0\%GAMENAME%_Data\%LOGNAME%%LOGTIMESTAMP%.txt'
-;~ 	$xArray[64] = ''
-;~ 	$xArray[65] = ''
-;~ 	$xArray[66] = 'echo Writing log file to: %LOGFILE%'
-;~ 	$xArray[67] = ''
-;~ 	$xArray[68] = 'start %GAMENAME% -logfile "%LOGFILE%" -quit -batchmode -nographics -configfile=' & $aConfigFile & ' -dedicated'
-;~ 	$xArray[69] = ''
-;~ 	$xArray[70] = ''
-;~ 	$xArray[71] = 'echo Starting server ...'
-;~ 	$xArray[72] = 'timeout 15'
-;~ 	$xArray[73] = ''
-;~ 	$xArray[74] = 'cls'
-;~ 	$xArray[75] = ''
-;~ 	$xArray[76] = 'echo.'
-;~ 	$xArray[77] = 'echo Server running in background, you can close this window.'
-;~ 	$xArray[78] = 'echo You can check the task manager if the server process is really running.'
-;~ 	$xArray[79] = 'echo.'
-;~ 	$xArray[80] = 'echo.'
-;~ 	$xArray[81] = ''
-;~ 	$xArray[82] = 'pause'
-;~ 	FileDelete($aServerDirLocal & "\Start_" & $aServerName & "_Dedicated_Server.bat")
-;~ 	_FileWriteFromArray($aServerDirLocal & "\Start_" & $aServerName & "_Dedicated_Server.bat", $xArray)
-;~ 	FileDelete($aBatchDIR & "\Start_" & $aServerName & "_Dedicated_Server.bat")
-;~ 	Local $xArray[2]
-;~ 	$xArray[0] = '@echo off'
-;~ 	$xArray[1] = 'start "" & $aServerName & " Dedicated Server" /D "' & $aServerDirLocal & '" Start_" & $aServerName & "_Dedicated_Server.bat"'
-;~ 	_FileWriteFromArray($aBatchDIR & "\Start_" & $aServerName & "_Dedicated_Server.bat", $xArray)
 	#EndRegion ; SteamCMD Update Files Creation
 	Global $aUtilExe = @ScriptName
 	FileDelete($aServerBatchFile)
@@ -1240,12 +1153,12 @@ Func _StartRemoteRestart()
 		Global $MainSocket = TCPListen($aServerIP, $aRemoteRestartPort, 100)
 		If $MainSocket = -1 Then
 			MsgBox(0x0, "Remote Restart", "Could not bind to [" & $aServerIP & ":" & $aRemoteRestartPort & "] Check server IP or disable Remote Restart in INI", 10)
-			LogWrite(" [Remote Restart] Remote Restart enabled but could not bind to " & $aServerIP & ":" & $aRemoteRestartPort)
+			LogWrite(" [RmRrst] Remote Restart enabled but could not bind to " & $aServerIP & ":" & $aRemoteRestartPort)
 		Else
 			If $sObfuscatePass = "no" Then
-				LogWrite(" [Remote Restart] Remote Restart enabled. Listening for restart request at http://" & $aServerIP & ":" & $aRemoteRestartPort & "/?[key]=[password]", " [Remote Restart] Remote Restart enabled. Listening for restart request at http://" & $aServerIP & ":" & $aRemoteRestartPort & "/?" & $aRemoteRestartKey & "=" & $aRemoteRestartCode)
+				LogWrite(" [RmRrst] Remote Restart enabled. Listening for restart request at http://" & $aServerIP & ":" & $aRemoteRestartPort & "/?[key]=[password]", " [RmRrst] Remote Restart enabled. Listening for restart request at http://" & $aServerIP & ":" & $aRemoteRestartPort & "/?" & $aRemoteRestartKey & "=" & $aRemoteRestartCode)
 			Else
-				LogWrite(" [Remote Restart] Remote Restart enabled. Listening for restart request at http://" & $aServerIP & ":" & $aRemoteRestartPort & "/?[key]=[password]")
+				LogWrite(" [RmRrst] Remote Restart enabled. Listening for restart request at http://" & $aServerIP & ":" & $aRemoteRestartPort & "/?[key]=[password]")
 			EndIf
 		EndIf
 	EndIf
@@ -1261,7 +1174,7 @@ Func RunUtilUpdate()
 EndFunc   ;==>RunUtilUpdate
 Func _ErrFunc($oError = 0)
 	Local $tHex = "0x" & Hex($oError.number)
-	LogWrite(" [" & $aObjErrFunc & "] Error in ObjEvent [0x" & Hex($oError.number) & "] " & _ErrorCode($tHex))
+	LogWrite(" [ Util ] [" & $aObjErrFunc & "] Error in ObjEvent [0x" & Hex($oError.number) & "] " & _ErrorCode($tHex))
 EndFunc   ;==>_ErrFunc
 Func _CloseEAH()
 	If $aEAH_Use <> "Never" Then
@@ -1269,34 +1182,17 @@ Func _CloseEAH()
 		If $tPID > 0 Then
 			Local $tReturn = ProcessClose($tPID)
 			If $tReturn = 0 Then
-				LogWrite(" [EAH] (PID:" & $tPID & ") Failed to properly close " & $aEAH_Exe & " at [" & $aEAH_Dir & "]")
+				LogWrite(" [ EAH  ] (PID:" & $tPID & ") Failed to properly close " & $aEAH_Exe & " at [" & $aEAH_Dir & "]")
 			Else
-				LogWrite(" [EAH] (PID:" & $tPID & ") " & $aEAH_Name & " closed.")
+				LogWrite(" [ EAH  ] (PID:" & $tPID & ") " & $aEAH_Name & " closed.")
 			EndIf
 		Else
-			LogWrite(" [EAH] (PID:" & $tPID & ") Failed to find running EAH process " & $aEAH_Exe & " at [" & $aEAH_Dir & "]")
+			LogWrite(" [ EAH  ] (PID:" & $tPID & ") Failed to find running EAH process " & $aEAH_Exe & " at [" & $aEAH_Dir & "]")
 		EndIf
 		IniWrite($aUtilCFGFile, "CFG", "EAH_PID", "0")
 	EndIf
 EndFunc   ;==>_CloseEAH
 ; -----------------------------------------------------------------------------------------------------------------------
-Func _CheckIfProcessRunning($tProcessFileName, $tDIR)
-	Local $tReturn = 0
-	$tDIR = AddTrailingSlash($tDIR)
-	If StringRight($tDIR, 1) <> "\" Then $tDIR &= "\"
-	Local $tProcess = ProcessList($tProcessFileName)
-	For $x = 1 To $tProcess[0][0]
-		Local $tProcessFolder = _ProcessGetLocation($tProcess[$x][1])
-		Local $xFileName = _PathSplit($tProcessFolder, "", "", "", "")
-;~ 		Local $tFileName = $xFileName[3] & $xFileName[4]
-		Local $tFolder = $xFileName[1] & $xFileName[2]
-		If $tFolder = $tDIR Then
-			$tReturn2 = $tProcess[$x][1]
-			$tReturn = ProcessExists($tProcess[$x][1])
-		EndIf
-	Next
-	Return $tReturn
-EndFunc   ;==>_CheckIfProcessRunning
 Func BackupCheck($sWDays, $sHours, $sMin)
 	Local $iDay = -1
 	Local $iHour = -1
@@ -1434,22 +1330,22 @@ Func PurgeBackups()
 		FileDelete($aPurgeBackups)
 	EndIf
 	FileWriteLine($aPurgeBackups, "for /f ""tokens=* skip=" & $aBackupNumberToKeep & """ %%F in " & Chr(40) & "'dir """ & $aBackupOutputFolder & "\" & $aGameName & "_Backup_*.zip"" /o-d /tc /b'" & Chr(41) & " do del """ & $aBackupOutputFolder & "\%%F""")
-	LogWrite("", " Deleting Backups > " & $aBackupNumberToKeep & " in folder " & $aBackupOutputFolder)
+	LogWrite("", " [Backup] Deleting Backups > " & $aBackupNumberToKeep & " in folder " & $aBackupOutputFolder)
 	Run($aPurgeBackups, "", @SW_HIDE)
 EndFunc   ;==>PurgeBackups
 Func _GetPlayerCount()
 	$aOnlinePlayers = GetPlayerCount(False)
 	If $aPlayerCountErr Then
 ;~ 	If $aGameTime = "Day 1, 00:00" Then
-		LogWrite("", " [Players] Failed to get player count. Retry attempt 1 of 2")
+		LogWrite("", " [Player] Failed to get player count. Retry attempt 1 of 2")
 		Sleep(1000)
 		$aOnlinePlayers = GetPlayerCount(False)
 		If $aPlayerCountErr Then
 ;~ 		If $aGameTime = "Day 1, 00:00" Then
-			LogWrite("", " [Players] Failed to get player count. Retry attempt 2 of 2")
+			LogWrite("", " [Player] Failed to get player count. Retry attempt 2 of 2")
 			Sleep(1000)
 			$aOnlinePlayers = GetPlayerCount(False)
-			If $aPlayerCountErr Then LogWrite("", " [Players] Failed to get player count.")
+			If $aPlayerCountErr Then LogWrite("", " [Player] Failed to get player count.")
 ;~ 			If $aGameTime = "Day 1, 00:00" Then LogWrite("", " [Players] Failed to get player count.")
 		EndIf
 	EndIf
@@ -1464,58 +1360,75 @@ Func _QueryCheck($tRestart1 = True)
 	Local $tDiffStart = _DateDiff('n', $gWatchdogServerStartTimeCheck, _NowCalc())
 	If $tDiffUpdate <= $aWatchdogWaitServerUpdate Then
 		$tSkipUpdateCheckTF = True
-		LogWrite("", " [Query] KeepAlive check SKIPPED due to Server Update: " & Int($aWatchdogWaitServerUpdate - $tDiffUpdate) & " minutes remain.")
+		Local $tTxt = Int($aWatchdogWaitServerUpdate - $tDiffUpdate)
+		If $tTxt = 0 Then $tTxt = "<1"
+		If $tRestart1 Then LogWrite("", " [Query ] KeepAlive check SKIPPED due to server update: " & $tTxt & " minute(s) remain.")
 	EndIf
 	If $tDiffStart <= $aWatchdogWaitServerStart Then
 		$tSkipStartCheckTF = True
-		LogWrite("", " [Query] KeepAlive check SKIPPED due to Server Start: " & Int($aWatchdogWaitServerStart - $tDiffStart) & " minutes remain.")
+		Local $tTxt = Int($aWatchdogWaitServerStart - $tDiffStart)
+		If $tTxt = 0 Then $tTxt = "<1"
+		If $tRestart1 Then LogWrite("", " [Query ] KeepAlive check SKIPPED due to server start: " & $tTxt & " minute(s) remain.")
 	EndIf
-	For $i = 1 To 6
-		Local $tQueryCheckResult = _GetQuery($aQueryIP, $aServerPort)
-		If UBound($tQueryCheckResult) < 10 Then
-			If $i = 6 Then
-				If $tSkipUpdateCheckTF = False And $tSkipStartCheckTF = False Then
-					If $tRestart1 Then
-						$tFailedCountQuery += 1
-						If $tFailedCountQuery > $aWatchdogAttemptsBeforeRestart Then
-							LogWrite(" [Query] KeepAlive check FAILED " & $aWatchdogAttemptsBeforeRestart & " attempts. Restarting server.")
-							CloseServer($aTelnetIP, $aTelnetPort, $aTelnetPass)
-							ExitLoop
-						Else
-							LogWrite(" [Query] KeepAlive check FAILED. Attempt " & $tFailedCountQuery & " of " & $aWatchdogAttemptsBeforeRestart & ".")
+	If $tSkipUpdateCheckTF = False And $tSkipStartCheckTF = False And $aServerShuttingDownTF = False Then
+		For $i = 1 To 5
+			Local $tQueryCheckResult = _GetQuery($aQueryIP, $aServerPort)
+			If UBound($tQueryCheckResult) < 10 Then
+				LogWrite("", " [Query ] KeepAlive check failed. Count:" & $i & " of 5")
+				Sleep(1000)
+			Else
+				$tFailedCountQuery = 0
+				$tReturn3 = True
+				$aServerQueryName = StringReplace($tQueryCheckResult[1], "$~!", "|")
+				$aPlayersCount = Number($tQueryCheckResult[6])
+				$aMaxPlayers = Number($tQueryCheckResult[7])
+				$aServerQueryName = StringReplace($tQueryCheckResult[1], "$~!", "|")
+				If $aServerOnlinePlayerYN = "no" Then
+					Local $tPlayers = IniRead($aUtilCFGFile, "CFG", "Last Online Player Count", 0)
+					If Number($tQueryCheckResult[6]) <> $tPlayers Then
+						If $aPlayerCountErr Then
+							If $aServerOnlinePlayerYN = "yes" Or $aTelnetCheckYN = "yes" Then GetPlayerCount(False)
 						EndIf
+					EndIf
+				EndIf
+				ExitLoop
+			EndIf
+			If $i = 5 Then
+				If $tRestart1 Then
+					$tFailedCountQuery += 1
+					If $tFailedCountQuery > $aWatchdogAttemptsBeforeRestart Then
+						LogWrite(" [Query ] KeepAlive check (series of 5) FAILED " & $aWatchdogAttemptsBeforeRestart & " attempt(s). Restarting server.")
+						Local $x1Return = _GetEAHDefaultConfigFile()
+						If $x1Return[0] <> $aConfigFile Then LogWrite(" [Config] !!! NOTE !!! EAH is set to use config file [" & $x1Return[0] & "].  ESUU is set to use config file [" & $aConfigFile & "] PLEASE UPDATE ESUU's CONFIG TO USE DESIRED YAML CONFIG.")
+						If $aServerCrashMsgSentRestartTF = False And $sUseDiscordBotServerCrashMsgRestartYN <> "no" Then _SendDiscordCrash($sDiscordServerCrashMsgRestart)
+						$aServerCrashMsgSentRestartTF = True
+						$tFailedCountQuery = 0
+						CloseServer($aTelnetIP, $aTelnetPort, $aTelnetPass)
+						ExitLoop
 					Else
-						$tReturn3 = False
+						LogWrite(" [Query ] KeepAlive check (series of 5) FAILED attempt " & $tFailedCountQuery & " of " & $aWatchdogAttemptsBeforeRestart & ".")
+						Local $x1Return = _GetEAHDefaultConfigFile()
+						If $x1Return[0] <> $aConfigFile Then LogWrite(" [Config] !!! NOTE !!! EAH is set to use config file [" & $x1Return[0] & "].  ESUU is set to use config file [" & $aConfigFile & "] PLEASE UPDATE ESUU's CONFIG TO USE DESIRED YAML CONFIG.")
+						If $aServerCrashMsgSentFailedTF = False And $sUseDiscordBotServerCrashMsgFailedYN <> "no" Then _SendDiscordCrash($sDiscordServerCrashMsgFailed)
+						$aServerCrashMsgSentFailedTF = True
 					EndIf
-					ExitLoop
+				Else
+					$tReturn3 = False
 				EndIf
+				ExitLoop
 			EndIf
-		Else
-			$tFailedCountQuery = 0
-			$tReturn3 = True
-			$aServerQueryName = StringReplace($tQueryCheckResult[1], "$~!", "|")
-			$aPlayersCount = Number($tQueryCheckResult[6])
-			$aMaxPlayers = Number($tQueryCheckResult[7])
-			$aServerQueryName = StringReplace($tQueryCheckResult[1], "$~!", "|")
-			If $aServerOnlinePlayerYN = "no" Then
-				Local $tPlayers = IniRead($aUtilCFGFile, "CFG", "Last Online Player Count", 0)
-				If Number($tQueryCheckResult[6]) <> $tPlayers Then
-					If $aPlayerCountErr Then
-						If $aServerOnlinePlayerYN = "yes" Or $aTelnetCheckYN = "yes" Then GetPlayerCount(False)
-					EndIf
-				EndIf
-			EndIf
-			ExitLoop
-		EndIf
-		Sleep(500)
-	Next
+		Next
+		If $i < 5 Then LogWrite("", " [Query ] KeepAlive check OK.")
+	EndIf
 	Return $tReturn3
 EndFunc   ;==>_QueryCheck
-
+Func _SendDiscordCrash($tMsg)
+	_SendDiscordStatus($tMsg)
+EndFunc   ;==>_SendDiscordCrash
 Func _SendDiscordPlayer()
 	If $aPlayerCountErr Then
 ;~ 	If $aGameTime = "Day 1, 00:00" Then
-		LogWrite("", " [Discord] Online player count error or not ready. Discord message not sent.")
+		LogWrite("", " [Dscord] Online player count error or not ready. Discord message not sent.")
 	Else
 		If $sUseDiscordBotPlayerChangeYN = "yes" Then
 			Local $tDiscordPlayersMsg = StringReplace($sDiscordPlayersMsg, "\o", $aPlayersCount)
@@ -1638,15 +1551,16 @@ Func CloseServer($ip, $port, $pass, $tNoSplashOff = "no")
 	$tQueryLogReadDoneTF = False
 	For $i = 1 To 5
 		If $aRebootConfigUpdate = "no" Then ControlSetText($aSplash, "", "Static1", "Sending shutdown command to server . . ." & @CRLF & @CRLF & "Countdown: " & (6 - $i))
-		LogWrite(" [Server] Sending shutdown command to server. Countdown:" & (6 - $i))
 		$aReply = _PlinkSend($aTelnetShutdown)
-		If StringInStr($aReply, "shutting server down") = 0 Then
+		LogWrite(" [Server] Sending shutdown command [" & $aTelnetShutdown & "] to server. Countdown:" & (6 - $i) & " Response [" & StringStripCR($aReply) & "]")
+		If StringInStr($aReply, "Exit will be executed") = 0 Then
 			Sleep(1000)
 		Else
 			If $aTelnetStayConnectedYN = "no" Then _PlinkDisconnect()
 			ExitLoop
 		EndIf
 	Next
+	$aServerShuttingDownTF = True
 	For $i = 1 To 10
 		If ProcessExists($aServerPID) Then
 			If $aRebootConfigUpdate = "no" Then ControlSetText($aSplash, "", "Static1", "Waiting for server to finish shutting down." & @CRLF & @CRLF & "Countdown: " & (11 - $i))
@@ -1660,7 +1574,7 @@ Func CloseServer($ip, $port, $pass, $tNoSplashOff = "no")
 		If ProcessExists($aServerPID) Then
 			ProcessClose($aServerPID)
 			If $aRebootConfigUpdate = "no" Then ControlSetText($aSplash, "", "Static1", "Server failed to shutdown. Killing process." & @CRLF & @CRLF & "Countdown: " & (11 - $i))
-			LogWrite(" [" & $aGameName & " (PID: " & $aServerPID & ")] Server failed to shutdown. Killing process. Countdown:" & (11 - $i))
+			LogWrite(" [Server] (PID: " & $aServerPID & ") Server failed to shutdown. Killing process. Countdown:" & (11 - $i))
 			Sleep(1000)
 		Else
 			ExitLoop
@@ -1685,7 +1599,7 @@ EndFunc   ;==>_SplashOff
 
 #Region ;**** Function to Send Message In Game ****
 Func SendInGame($ip, $port, $pass, $tMsg)
-	$tMsg = "say """ & $tMsg & """"
+	$tMsg = "say '" & $tMsg & "'"
 	$aReply = _PlinkSend($tMsg)
 	LogWrite(" [Telnet] In-game message sent (" & $tMsg & ") " & $aReply)
 EndFunc   ;==>SendInGame
@@ -1695,7 +1609,7 @@ EndFunc   ;==>SendInGame
 
 #Region ;**** Function to Send Message to Discord ****
 Func _Discord_ErrFunc($oError)
-	LogWrite(" [" & $aGameName & " (PID: " & $aServerPID & ")] Error: 0x" & Hex($oError.number) & " While Sending Discord Bot Message.")
+	LogWrite(" [Server] (PID: " & $aServerPID & ") Error: 0x" & Hex($oError.number) & " While Sending Discord Bot Message.")
 EndFunc   ;==>_Discord_ErrFunc
 Func ReplaceCRLF($tMsg0)
 	Return StringRegExpReplace($tMsg0, '(*BSR_ANYCRLF)\R', "|") ; Idea by Ascend4nt
@@ -1720,13 +1634,13 @@ Func SendDiscordMsg($sHookURL, $sBotMessage, $sBotName = "", $sBotTTS = False, $
 		Local $oStatusCode = $oHTTPOST.Status
 		Local $oReceived = $oHTTPOST.ResponseText
 		If (Int($oStatusCode) = 200) Or (Int($oStatusCode) = 204) Then
-			LogWrite(" [Discord] Message to WH" & $tWH & " sent. Message:" & $sBotMessage, " [Discord] (Fast Method) Message to WH" & $tWH & " sent (" & $sJsonMessage & "). Status Code (" & $oStatusCode & ") " & $oReceived)
+			LogWrite(" [Dscord] Message to WH" & $tWH & " sent. Message:" & $sBotMessage, " [Dscord] (Fast Method) Message to WH" & $tWH & " sent (" & $sJsonMessage & "). Status Code (" & $oStatusCode & ") " & $oReceived)
 			$tErr = False
 		ElseIf Int($oStatusCode) = 429 Then
-			LogWrite(" [Discord] ERROR! Message to WH" & $tWH & " failed due to too many requests. Message(" & $sBotMessage & ")", " [Discord] (Fast Method) ERROR! Message to WH" & $tWH & " failed due to too many requests (" & $sJsonMessage & ". Status Code (" & $oStatusCode & ") " & $oReceived)
+			LogWrite(" [Dscord] ERROR! Message to WH" & $tWH & " failed due to too many requests. Message(" & $sBotMessage & ")", " [Dscord] (Fast Method) ERROR! Message to WH" & $tWH & " failed due to too many requests (" & $sJsonMessage & ". Status Code (" & $oStatusCode & ") " & $oReceived)
 			$tErr = False
 		Else
-			LogWrite(" [Discord] ERROR! Message to WH" & $tWH & " failed. Message:" & $sBotMessage, " [Discord] (Fast Method) ERROR! Message to WH" & $tWH & " failed (" & $sJsonMessage & ". Status Code (" & $oStatusCode & ") " & $oReceived)
+			LogWrite(" [Dscord] ERROR! Message to WH" & $tWH & " failed. Message:" & $sBotMessage, " [Dscord] (Fast Method) ERROR! Message to WH" & $tWH & " failed (" & $sJsonMessage & ". Status Code (" & $oStatusCode & ") " & $oReceived)
 			$tErr = True
 		EndIf
 		If $tErr Then
@@ -1761,10 +1675,10 @@ Func SendDiscordMsg($sHookURL, $sBotMessage, $sBotName = "", $sBotTTS = False, $
 			Next
 			Local $tReply = ReplaceCRLF($tcrcatch)
 			If (StringInStr($tReply, "[200]") > 0) Or (StringInStr($tReply, "[204]") > 0) Then
-				LogWrite(" [Discord] (Backup Method) Message to WH" & $tWH & " sent: " & $sBotMessage, " [Discord] (Backup Method) Message sent to WH" & $tWH & ":[" & $tCmd & "] | Response:[" & $tReply & "]")
+				LogWrite(" [Dscord] (Backup Method) Message to WH" & $tWH & " sent: " & $sBotMessage, " [Dscord] (Backup Method) Message sent to WH" & $tWH & ":[" & $tCmd & "] | Response:[" & $tReply & "]")
 			Else
 				FileDelete($tFile)
-				LogWrite(" [Discord] (Backup Method) ERROR!!! Send message to WH" & $tWH & " failed 1st attempt: " & $sBotMessage, " [Discord] (Backup Method) ERROR!!! Send message to WH" & $tWH & " failed 1st attempt:[" & $tCmd & "] Response:[" & $tReply & "]")
+				LogWrite(" [Dscord] (Backup Method) ERROR!!! Send message to WH" & $tWH & " failed 1st attempt: " & $sBotMessage, " [Dscord] (Backup Method) ERROR!!! Send message to WH" & $tWH & " failed 1st attempt:[" & $tCmd & "] Response:[" & $tReply & "]")
 				Local $mOut = Run($tCmd, $aFolderTemp, @SW_HIDE)
 				$tErr = ProcessWaitClose($mOut, 4)
 				If $tErr = 0 Then
@@ -1779,9 +1693,9 @@ Func SendDiscordMsg($sHookURL, $sBotMessage, $sBotName = "", $sBotTTS = False, $
 				Next
 				Local $tReply = ReplaceCRLF($tcrcatch)
 				If (StringInStr($tReply, "[200]") > 0) Or (StringInStr($tReply, "[204]") > 0) Then
-					LogWrite(" [Discord] Message to WH" & $tWH & " sent: " & $sBotMessage, " [Discord] Message sent to WH" & $tWH & ":[" & $tCmd & "] | Response:[" & $tReply & "]")
+					LogWrite(" [Dscord] Message to WH" & $tWH & " sent: " & $sBotMessage, " [Dscord] Message sent to WH" & $tWH & ":[" & $tCmd & "] | Response:[" & $tReply & "]")
 				Else
-					LogWrite(" [Discord] ERROR!!! Send message to WH" & $tWH & " failed 2nd attempt: " & $sBotMessage, " [Discord] ERROR!!! Send message to WH" & $tWH & " failed 2nd attempt:[" & $tCmd & "] Response:[" & $tReply & "]")
+					LogWrite(" [Dscord] ERROR!!! Send message to WH" & $tWH & " failed 2nd attempt: " & $sBotMessage, " [Dscord] ERROR!!! Send message to WH" & $tWH & " failed 2nd attempt:[" & $tCmd & "] Response:[" & $tReply & "]")
 ;~ 					If $aDiscordUseFastMethodYN = "no" Then
 					Local $sJsonMessage = '{"content" : "' & $sBotMessage & '", "username" : "' & $sBotName & '", "tts" : "' & $sBotTTS & '", "avatar_url" : "' & $sBotAvatar & '"}'
 					Local $oHTTPOST = ObjCreate("WinHttp.WinHttpRequest.5.1")
@@ -1792,10 +1706,10 @@ Func SendDiscordMsg($sHookURL, $sBotMessage, $sBotName = "", $sBotTTS = False, $
 					Local $oStatusCode = $oHTTPOST.Status
 					Local $oReceived = $oHTTPOST.ResponseText
 					If (Int($oStatusCode) = 200) Or (Int($oStatusCode) = 204) Then
-						LogWrite(" [Discord] (Attempt #3) Message to WH" & $tWH & " sent. Message(" & $sBotMessage & ")", " [Discord] (Fast Method) Message to WH" & $tWH & " sent. Status Code (" & $oStatusCode & ") " & $oReceived)
+						LogWrite(" [Dscord] (Attempt #3) Message to WH" & $tWH & " sent. Message(" & $sBotMessage & ")", " [Dscord] (Fast Method) Message to WH" & $tWH & " sent. Status Code (" & $oStatusCode & ") " & $oReceived)
 						$tErr = False
 					Else
-						LogWrite(" [Discord] (Attempt #3) ERROR! Message to WH" & $tWH & " failed. Message(" & $sBotMessage & ")", " [Discord] (Fast Method) ERROR! Message to WH" & $tWH & " failed. Status Code (" & $oStatusCode & ") " & $oReceived)
+						LogWrite(" [Dscord] (Attempt #3) ERROR! Message to WH" & $tWH & " failed. Message(" & $sBotMessage & ")", " [Dscord] (Fast Method) ERROR! Message to WH" & $tWH & " failed. Status Code (" & $oStatusCode & ") " & $oReceived)
 						$tErr = True
 					EndIf
 ;~ 					EndIf
@@ -1804,7 +1718,7 @@ Func SendDiscordMsg($sHookURL, $sBotMessage, $sBotName = "", $sBotTTS = False, $
 		EndIf
 		$aObjErrFunc = "System"
 	Else
-		LogWrite(" [Discord] ERROR! Message to WH" & $tWH & " failed. No webhook is assigned (" & $sBotMessage & ")")
+		LogWrite(" [Dscord] ERROR! Message to WH" & $tWH & " failed. No webhook is assigned (" & $sBotMessage & ")")
 	EndIf
 EndFunc   ;==>SendDiscordMsg
 #EndRegion ;**** Function to Send Message to Discord ****
@@ -1860,19 +1774,19 @@ EndFunc   ;==>SendTwitchMsg
 Func TwitchMsgLog($sT_Msg)
 	Local $aTwitchIRC = SendTwitchMsg($sTwitchNick, $sChatOAuth, $sTwitchChannels, $sT_Msg)
 	If $aTwitchIRC[0] Then
-		LogWrite(" [" & $aGameName & " (PID: " & $aServerPID & ")] [Twitch Bot] Successfully Connected to Twitch IRC")
+		LogWrite(" [Server] (PID: " & $aServerPID & ") [Twitch Bot] Successfully Connected to Twitch IRC")
 		If $aTwitchIRC[1] Then
-			LogWrite(" [" & $aGameName & " (PID: " & $aServerPID & ")] [Twitch Bot] Username and OAuth Accepted. [" & $aTwitchIRC[2] & "]")
+			LogWrite(" [Server] (PID: " & $aServerPID & ") [Twitch Bot] Username and OAuth Accepted. [" & $aTwitchIRC[2] & "]")
 			If $aTwitchIRC[3] Then
-				LogWrite(" [" & $aGameName & " (PID: " & $aServerPID & ")] [Twitch Bot] Successfully sent ( " & $sT_Msg & " ) to all Channels")
+				LogWrite(" [Server] (PID: " & $aServerPID & ") [Twitch Bot] Successfully sent ( " & $sT_Msg & " ) to all Channels")
 			Else
-				LogWrite(" [" & $aGameName & " (PID: " & $aServerPID & ")] [Twitch Bot] ERROR | Failed sending message ( " & $sT_Msg & " ) to one or more channels")
+				LogWrite(" [Server] (PID: " & $aServerPID & ") [Twitch Bot] ERROR | Failed sending message ( " & $sT_Msg & " ) to one or more channels")
 			EndIf
 		Else
-			LogWrite(" [" & $aGameName & " (PID: " & $aServerPID & ")] [Twitch Bot] ERROR | Username and OAuth Denied [" & $aTwitchIRC[2] & "]")
+			LogWrite(" [Server] (PID: " & $aServerPID & ") [Twitch Bot] ERROR | Username and OAuth Denied [" & $aTwitchIRC[2] & "]")
 		EndIf
 	Else
-		LogWrite(" [" & $aGameName & " (PID: " & $aServerPID & ")] [Twitch Bot] ERROR | Could not connect to Twitch IRC. Is this URL or port blocked? [irc.chat.twitch.tv:6667]")
+		LogWrite(" [Server] (PID: " & $aServerPID & ") [Twitch Bot] ERROR | Could not connect to Twitch IRC. Is this URL or port blocked? [irc.chat.twitch.tv:6667]")
 	EndIf
 EndFunc   ;==>TwitchMsgLog
 #EndRegion ;**** Post to Twitch Chat Function ****
@@ -1903,7 +1817,7 @@ EndFunc   ;==>DailyRestartCheck
 
 Func RunExternalScriptDaily()
 	If $aExternalScriptDailyYN = "yes" Then
-		LogWrite(" Executing DAILY restart external script " & $aExternalScriptDailyFile)
+		LogWrite(" [Batch ] Executing DAILY restart external script " & $aExternalScriptDailyFile)
 		If $aExternalScriptDailyWait = "no" Then
 			If $aExternalScriptHideYN = "yes" Then
 				Run($aExternalScriptDailyFile, @SW_HIDE)
@@ -1922,7 +1836,7 @@ EndFunc   ;==>RunExternalScriptDaily
 
 Func RunExternalScriptAnnounce()
 	If $aExternalScriptAnnounceYN = "yes" Then
-		LogWrite(" Executing FIRST ANNOUNCEMENT external script " & $aExternalScriptAnnounceFile)
+		LogWrite(" [Batch ] Executing FIRST ANNOUNCEMENT external script " & $aExternalScriptAnnounceFile)
 		If $aExternalScriptAnnounceWait = "no" Then
 			If $aExternalScriptHideYN = "yes" Then
 				Run($aExternalScriptAnnounceFile, @SW_HIDE)
@@ -1941,7 +1855,7 @@ EndFunc   ;==>RunExternalScriptAnnounce
 
 Func RunExternalRemoteRestart()
 	If $aExternalScriptRemoteYN = "yes" Then
-		LogWrite(" Executing REMOTE RESTART external script " & $aExternalScriptRemoteFile)
+		LogWrite(" [Batch ] Executing REMOTE RESTART external script " & $aExternalScriptRemoteFile)
 		If $aExternalScriptRemoteWait = "no" Then
 			If $aExternalScriptHideYN = "yes" Then
 				Run($aExternalScriptRemoteFile, @SW_HIDE)
@@ -1960,7 +1874,7 @@ EndFunc   ;==>RunExternalRemoteRestart
 
 Func RunExternalScriptUpdate()
 	If $aExternalScriptUpdateYN = "yes" Then
-		LogWrite(" Executing Script When Restarting For Server Update: " & $aExternalScriptUpdateFile)
+		LogWrite(" [Batch ] Executing Script When Restarting For Server Update: " & $aExternalScriptUpdateFile)
 		If $aExternalScriptUpdateWait = "no" Then
 			If $aExternalScriptHideYN = "yes" Then
 				Run($aExternalScriptUpdateFile, @SW_HIDE)
@@ -1987,7 +1901,7 @@ Func ExternalScriptExist()
 				_ExitUtil()
 			Else
 				$aExecuteExternalScript = "no"
-				LogWrite(" External BEFORE update script execution disabled - Could not find " & $aExternalScriptFile)
+				LogWrite(" [Batch ] External BEFORE update script execution disabled - Could not find " & $aExternalScriptFile)
 			EndIf
 		EndIf
 	EndIf
@@ -2000,7 +1914,7 @@ Func ExternalScriptExist()
 				_ExitUtil()
 			Else
 				$aExternalScriptValidateYN = "no"
-				LogWrite(" External AFTER update script execution disabled - Could not find " & $aExternalScriptValidateFile)
+				LogWrite(" [Batch ] External AFTER update script execution disabled - Could not find " & $aExternalScriptValidateFile)
 			EndIf
 		EndIf
 	EndIf
@@ -2013,7 +1927,7 @@ Func ExternalScriptExist()
 				_ExitUtil()
 			Else
 				$aExternalScriptDailyYN = "no"
-				LogWrite(" External DAILY restart script execution disabled - Could not find " & $aExternalScriptDailyFile)
+				LogWrite(" [Batch ] External DAILY restart script execution disabled - Could not find " & $aExternalScriptDailyFile)
 			EndIf
 		EndIf
 	EndIf
@@ -2026,7 +1940,7 @@ Func ExternalScriptExist()
 				_ExitUtil()
 			Else
 				$aExternalScriptUpdateYN = "no"
-				LogWrite(" External UPDATE restart script execution disabled - Could not find " & $aExternalScriptUpdateFile)
+				LogWrite(" [Batch ] External UPDATE restart script execution disabled - Could not find " & $aExternalScriptUpdateFile)
 			EndIf
 		EndIf
 	EndIf
@@ -2039,7 +1953,7 @@ Func ExternalScriptExist()
 				_ExitUtil()
 			Else
 				$aExternalScriptDailyYN = "no"
-				LogWrite(" External DAILY restart script execution disabled - Could not find " & $aExternalScriptAnnounceFile)
+				LogWrite(" [Batch ] External DAILY restart script execution disabled - Could not find " & $aExternalScriptAnnounceFile)
 			EndIf
 		EndIf
 	EndIf
@@ -2052,7 +1966,7 @@ Func ExternalScriptExist()
 				_ExitUtil()
 			Else
 				$aExternalScriptDailyYN = "no"
-				LogWrite(" External DAILY restart script execution disabled - Could not find " & $aExternalScriptRemoteFile)
+				LogWrite(" [Batch ] External DAILY restart script execution disabled - Could not find " & $aExternalScriptRemoteFile)
 			EndIf
 		EndIf
 	EndIf
@@ -2085,7 +1999,7 @@ Func GetLatestVerSteamDB($bSteamAppID, $bServerVer)
 		_SplashOff()
 		MsgBox($mb_ok, "ERROR", " [Update] Error retrieving buildid via SteamDB website. Please visit:" & @CRLF & @CRLF & $aURL & @CRLF & @CRLF & _
 				"in *Internet Explorer* (NOT Chrome.. must be Internet Explorer) to CAPTCHA authorize your PC or use SteamCMD for updates." & @CRLF & "! Press OK to close " & $aUtilName & " !", 60)
-		LogWrite("Error retrieving buildid via SteamDB website. Please visit:" & $aURL & _
+		LogWrite(" [Update] Error retrieving buildid via SteamDB website. Please visit:" & $aURL & _
 				"in **Internet Explorer** (NOT Chrome.. must be Internet Explorer) to CAPTCHA authorize your PC or use SteamCMD for updates.")
 	EndIf
 	If FileExists($sFilePath) Then
@@ -2096,70 +2010,415 @@ Func GetLatestVerSteamDB($bSteamAppID, $bServerVer)
 	Return $aReturn
 EndFunc   ;==>GetLatestVerSteamDB
 
-Func GetLatestVersion($sCmdDir)
-	$hBuildID = "0"
+Func GetLatestVersion()
+	Local $hBuildID = "0"
 	Local $aReturn[2] = [False, ""]
-	DirRemove($sCmdDir & "\appcache", 1)
-	DirRemove($sCmdDir & "\depotcache", 1)
-	$sAppInfoTemp = "app_info_" & StringRegExpReplace(_NowCalc(), "[\\\/\: ]", "_") & ".tmp"
-	$aSteamUpdateCheck = '"' & @ComSpec & '" /c "' & $sCmdDir & "\steamcmd.exe"" +login anonymous +app_info_update 1 +app_info_print " & $aSteamAppID & " +app_info_print " & $aSteamAppID & " +app_info_print " & $aSteamAppID & " +exit > " & $sAppInfoTemp
-	RunWait($aSteamUpdateCheck, $aSteamCMDDir, @SW_MINIMIZE)
-	Local Const $sFilePath = $sCmdDir & "\" & $sAppInfoTemp
-	;	Local Const $sFilePath = $sCmdDir & "\app_info.tmp"
-	Local $hFileOpen = FileOpen($sFilePath, 0)
-	Local $hFileRead1 = FileRead($hFileOpen)
-	If $hFileOpen = -1 Then
-		;		$aSteamRunCount = $aSteamRunCount + 1
-		;		If $aSteamRunCount = 3 Then
-		$aReturn[0] = False
-		;		Else
-		;			$aReturn[0] = True
-		LogWrite(" [Update] SteamCMD update check FAILED to create update file. Skipping this update check.")
-		;		EndIf
-	Else
-		;	Local $aString = _ArrayToString($hFileOpen)
-		If StringInStr($hFileRead1, "buildid") > 0 Then
-			Local $hFileReadArray = _StringBetween($hFileRead1, "branches", "AppID")
-			Local $hFileRead = _ArrayToString($hFileReadArray)
-			Local $hString1 = _StringBetween($hFileRead, $aServerVer, "timeupdated")
-			If @error Then
-				LogWrite(" [Update] ERROR!!! " & $aServerVer & " branch not found by SteamCMD")
-				_SplashOff()
-				For $x1 = 0 To 5
-					$tSplash = _Splash("ERROR! " & $aServerVer & " branch not found by SteamCMD.", 0, 300, 75)
-					Sleep(850)
-					ControlSetText($tSplash, "", "Static1", "")
-					Sleep(150)
-				Next
-				_SplashOff()
-			Else
-				Local $hString2 = StringSplit($hString1[0], '"', 2)
-				$hString3 = _ArrayToString($hString2)
-				Local $hString4 = StringRegExpReplace($hString3, "\t", "")
-				Local $hString5 = StringRegExpReplace($hString4, @CR & @LF, ".")
-				Local $hString6 = StringRegExpReplace($hString5, "{", "")
-				Local $hBuildIDArray = _StringBetween($hString6, "buildid||", "|.")
-				Local $hBuildID = _ArrayToString($hBuildIDArray)
-				LogWrite("", " [Update] Update Check via " & $aServerVer & " Branch. Latest version: " & $hBuildID)
-				If FileExists($sFilePath) Then
-					FileDelete($sFilePath)
+	$aSteamBranch = $aServerVer
+	Local $aSteamUpdateCheck = 'https://api.steamcmd.net/v1/info/' & $aSteamAppID
+	LogWrite("", " [Update] Getting latest buildID: " & $aSteamUpdateCheck)
+	Local $hFileRead1 = _getHTTPOutput($aSteamUpdateCheck)
+	$hFileRead1 = StringReplace($hFileRead1, @CRLF, "")
+	$hFileRead1 = StringReplace($hFileRead1, @TAB, "")
+	$hFileRead1 = StringReplace($hFileRead1, " ", "")
+	If StringInStr($hFileRead1, "buildid") > 0 Then
+		Local $tLoc = StringInStr($hFileRead1, '"Branches"') + 10
+		Local $hString1 = StringTrimLeft($hFileRead1, $tLoc)
+		Local $tTxt = StringReplace($hString1, '{"', '') / 2
+		Local $tCount = @extended - 1
+		Local $hString2 = $hString1
+		For $ti = 0 To $tCount
+			Local $tLoc = StringInStr($hString2, '"')
+			If $tLoc > 1 Then $hString2 = StringTrimLeft($hString2, $tLoc - 1)
+			If StringLeft($hString2, 1) = '"' Then
+				$hString2 = StringTrimLeft($hString2, 1)
+				Local $hBranch = StringLeft($hString2, StringInStr($hString2, '"') - 1)
+				$hString2 = StringTrimLeft($hString2, StringLen($hBranch) + 3)
+				Local $hString3 = StringLeft($hString2, StringInStr($hString2, '"}') + 1)
+				$hString3 = StringTrimLeft($hString3, StringInStr($hString3, '"Buildid":"') + 10)
+				Local $hBuildID1 = StringLeft($hString3, StringInStr($hString3, '"') - 1)
+				$hString2 = StringTrimLeft($hString2, StringInStr($hString2, '"}') + 1)
+				If $tLoc > 1 Then $hString2 = StringTrimLeft($hString2, StringInStr($hString2, '"') - 1)
+				If $hBranch = $aSteamBranch Then
+					$hBuildID = $hBuildID1
+					ExitLoop
 				EndIf
-				$aReturn[0] = True
 			EndIf
-		Else
-			;			$aSteamRunCount = $aSteamRunCount + 1
-			;			If $aSteamRunCount = 3 Then
-			$aReturn[0] = False
-			;			Else
-			LogWrite(" [Update] SteamCMD update check returned a FAILURE reponse. Skipping this update check.")
-			;				$aReturn[0] = True
-			;			EndIf
-		EndIf
-		FileClose($hFileOpen)
+		Next
+	EndIf
+	If $hBuildID = 0 Then
+		$aReturn[0] = False
+		LogWrite(" [Update] Update Check via " & $aSteamBranch & " branch returned a FAILURE response. Skipping this update check [" & $hBuildID & "]")
+	Else
+		LogWrite("", " [Update] Update Check via " & $aSteamBranch & " branch. Latest version: " & $hBuildID)
+		$aReturn[0] = True
 	EndIf
 	$aReturn[1] = $hBuildID
 	Return $aReturn
 EndFunc   ;==>GetLatestVersion
+Func _getHTTPOutput($hURL)
+	Local $sFilePath = $aFolderTemp & "GetHTTP.tmp"
+	Local $tInet = InetGet($hURL, $sFilePath, 1)
+	$tErr = _InetGetErrorText(@error, 3)
+	Sleep(100)
+	Local $hFileOpen = FileOpen($sFilePath, 0)
+	Local $hFileRead1 = FileRead($hFileOpen, 100000000)
+	FileClose($hFileOpen)
+	FileDelete($sFilePath)
+	Return $hFileRead1
+EndFunc   ;==>_getHTTPOutput
+Func _InetGetErrorText($iErrorCode, $iInfoLevel = 1)
+	; PeteW, last updated: 16.01.12
+	;  $iErrorCode = @extended [InetGetInfo(handle,5)] code number
+	;  $iInfoLevel 1 (Default) = return 'ERROR_CODE' text only, 2 = return 'Description' text only, 3 = return 'ERROR_CODE: Description' text.
+	; Codes / descriptions obtained from http://support.microsoft.com/kb/193625 & http://www.mathemainzel.info/files/w32ineterrors.html
+	;
+	Local $sErrMsg, $sErrDesc
+	Switch $iErrorCode
+		Case 0
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_SUCCESS"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "Action completed successfully."
+		Case 12001
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_OUT_OF_HANDLES"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "No more handles could be generated at this time."
+		Case 12002
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_TIMEOUT"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The request has timed out."
+		Case 12003
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_EXTENDED_ERROR"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "An extended error was returned from the server [may be 'file not found']. This is typically a string or buffer containing a verbose error message. Call InternetGetLastResponseInfo to retrieve the error text."
+		Case 12004
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_INTERNAL_ERROR"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "An internal error has occurred."
+		Case 12005
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_INVALID_URL"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The URL is invalid."
+		Case 12006
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_UNRECOGNIZED_SCHEME"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The URL scheme could not be recognized or is not supported."
+		Case 12007
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_NAME_NOT_RESOLVED"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The server name could not be resolved."
+		Case 12008
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_PROTOCOL_NOT_FOUND"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The requested protocol could not be located."
+		Case 12009
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_INVALID_OPTION"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "A request to InternetQueryOption or InternetSetOption specified an invalid option value."
+		Case 12010
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_BAD_OPTION_LENGTH"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The length of an option supplied to InternetQueryOption or InternetSetOption is incorrect for the type of option specified."
+		Case 12011
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_OPTION_NOT_SETTABLE"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The request option cannot be set, only queried."
+		Case 12012
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_SHUTDOWN"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The Win32 Internet function support is being shut down or unloaded."
+		Case 12013
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_INCORRECT_USER_NAME"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The request to connect and log on to an FTP server could not be completed because the supplied user name is incorrect."
+		Case 12014
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_INCORRECT_PASSWORD"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The request to connect and log on to an FTP server could not be completed because the supplied password is incorrect."
+		Case 12015
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_LOGIN_FAILURE"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The request to connect to and log on to an FTP server failed."
+		Case 12016
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_INVALID_OPERATION"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The requested operation is invalid."
+		Case 12017
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_OPERATION_CANCELLED"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The operation was canceled, usually because the handle on which the request was operating was closed before the operation completed."
+		Case 12018
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_INCORRECT_HANDLE_TYPE"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The type of handle supplied is incorrect for this operation."
+		Case 12019
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_INCORRECT_HANDLE_STATE"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The requested operation cannot be carried out because the handle supplied is not in the correct state."
+		Case 12020
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_NOT_PROXY_REQUEST"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The request cannot be made via a proxy."
+		Case 12021
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_REGISTRY_VALUE_NOT_FOUND"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "A required registry value could not be located."
+		Case 12022
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_BAD_REGISTRY_PARAMETER"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "A required registry value was located but is an incorrect type or has an invalid value."
+		Case 12023
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_NO_DIRECT_ACCESS"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "Direct network access cannot be made at this time."
+		Case 12024
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_NO_CONTEXT"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "An asynchronous request could not be made because a zero context value was supplied."
+		Case 12025
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_NO_CALLBACK"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "An asynchronous request could not be made because a callback function has not been set."
+		Case 12026
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_REQUEST_PENDING"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The required operation could not be completed because one or more requests are pending."
+		Case 12027
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_INCORRECT_FORMAT"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The format of the request is invalid."
+		Case 12028
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_ITEM_NOT_FOUND"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The requested item could not be located."
+		Case 12029
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_CANNOT_CONNECT"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The attempt to connect to the server failed."
+		Case 12030
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_CONNECTION_ABORTED"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The connection with the server has been terminated."
+		Case 12031
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_CONNECTION_RESET"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The connection with the server has been reset."
+		Case 12032
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_FORCE_RETRY"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "Calls for the Win32 Internet function to redo the request."
+		Case 12033
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_INVALID_PROXY_REQUEST"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The request to the proxy was invalid."
+		Case 12034
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_NEED_UI"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "A user interface or other blocking operation has been requested."
+		Case 12036
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_HANDLE_EXISTS"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The request failed because the handle already exists."
+		Case 12037
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_SEC_CERT_DATE_INVALID"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "SSL certificate date that was received from the server is bad. The certificate is expired."
+		Case 12038
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_SEC_CERT_CN_INVALID"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "SSL certificate common name (host name field) is incorrect. For example, if you entered www.server.com and the common name on the certificate says www.different.com."
+		Case 12039
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_HTTP_TO_HTTPS_ON_REDIR"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The application is moving from a non-SSL to an SSL connection because of a redirect."
+		Case 12040
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_HTTPS_TO_HTTP_ON_REDIR"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The application is moving from an SSL to an non-SSL connection because of a redirect."
+		Case 12041
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_MIXED_SECURITY"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "Indicates that the content is not entirely secure. Some of the content being viewed may have come from unsecured servers."
+		Case 12042
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_CHG_POST_IS_NON_SECURE"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The application is posting and attempting to change multiple lines of text on a server that is not secure."
+		Case 12043
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "INTERNET_POST_IS_NON_SECURE"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The application is posting data to a server that is not secure."
+		Case 12044
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_CLIENT_AUTH_CERT_NEEDED"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The server is requesting client authentication."
+		Case 12045
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_INVALID_CA"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The function is unfamiliar with the Certificate Authority that generated the server's certificate."
+		Case 12046
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_CLIENT_AUTH_NOT_SETUP"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "Client authorization is not set up on this computer."
+		Case 12047
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_ASYNC_THREAD_FAILED"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The application could not start an asynchronous thread."
+		Case 12048
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_REDIRECT_SCHEME_CHANGE"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The function could not handle the redirection, because the scheme changed (for example, HTTP to FTP)."
+		Case 12049
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_DIALOG_PENDING"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "Another thread has a password dialog box in progress."
+		Case 12050
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_RETRY_DIALOG"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The dialog box should be retried."
+		Case 12052
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_HTTPS_HTTP_SUBMIT_REDIR"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The data being submitted to an SSL connection is being redirected to a non-SSL connection."
+		Case 12053
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_INSERT_CDROM"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The request requires a CD-ROM to be inserted in the CD-ROM drive to locate the resource requested."
+		Case 12054
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_FORTEZZA_LOGIN_NEEDED"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The requested resource requires Fortezza authentication."
+		Case 12055
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_SEC_CERT_ERRORS"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The SSL certificate contains errors."
+		Case 12056
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_SEC_CERT_NO_REV"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The SSL certificate was not revoked."
+		Case 12057
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_SEC_CERT_REV_FAILED"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "Revocation of the SSL certificate failed."
+		Case 12110
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "FTP_TRANSFER_IN_PROGRESS"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The requested operation cannot be made on the FTP session handle because an operation is already in progress."
+		Case 12111
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "FTP_DROPPED"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The FTP operation was not completed because the session was aborted."
+		Case 12130
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "GOPHER_PROTOCOL_ERROR"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "An error was detected while parsing data returned from the gopher server."
+		Case 12131
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "GOPHER_NOT_FILE"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The request must be made for a file locator."
+		Case 12132
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "GOPHER_DATA_ERROR"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "An error was detected while receiving data from the gopher server."
+		Case 12133
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "GOPHER_END_OF_DATA"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The end of the data has been reached."
+		Case 12134
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "GOPHER_INVALID_LOCATOR"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The supplied locator is not valid."
+		Case 12135
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "GOPHER_INCORRECT_LOCATOR_TYPE"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The type of the locator is not correct for this operation."
+		Case 12136
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "GOPHER_NOT_GOPHER_PLUS"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The requested operation can only be made against a Gopher+ server or with a locator that specifies a Gopher+ operation."
+		Case 12137
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "GOPHER_ATTRIBUTE_NOT_FOUND"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The requested attribute could not be located."
+		Case 12138
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "GOPHER_UNKNOWN_LOCATOR"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The locator type is unknown."
+		Case 12150
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "HTTP_HEADER_NOT_FOUND"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The requested header could not be located."
+		Case 12151
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "HTTP_DOWNLEVEL_SERVER"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The server did not return any headers."
+		Case 12152
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "HTTP_INVALID_SERVER_RESPONSE"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The server response could not be parsed."
+		Case 12153
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "HTTP_INVALID_HEADER"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The supplied header is invalid."
+		Case 12154
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "HTTP_INVALID_QUERY_REQUEST"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The request made to HttpQueryInfo is invalid."
+		Case 12155
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "HTTP_HEADER_ALREADY_EXISTS"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The header could not be added because it already exists."
+		Case 12156
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "HTTP_REDIRECT_FAILED"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The redirection failed because either the scheme changed (for example, HTTP to FTP) or all attempts made to redirect failed (default is five attempts)."
+		Case 12157
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_SECURITY_CHANNEL_ERROR"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The application experienced an internal error loading the SSL libraries."
+		Case 12158
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_UNABLE_TO_CACHE_FILE"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The function was unable to cache the file."
+		Case 12159
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_TCPIP_NOT_INSTALLED"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The required protocol stack is not loaded and the application cannot start WinSock."
+		Case 12160
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_HTTP_NOT_REDIRECTED"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The HTTP request was not redirected."
+		Case 12161
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_HTTP_COOKIE_NEEDS_CONFIRMATION"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The HTTP cookie requires confirmation."
+		Case 12162
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_HTTP_COOKIE_DECLINED"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The HTTP cookie was declined by the server."
+		Case 12163
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_DISCONNECTED"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The Internet connection has been lost."
+		Case 12164
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_SERVER_UNREACHABLE"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The Web site or server indicated is unreachable."
+		Case 12165
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_PROXY_SERVER_UNREACHABLE"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The designated proxy server cannot be reached."
+		Case 12166
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_BAD_AUTO_PROXY_SCRIPT"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "There was an error in the automatic proxy configuration script."
+		Case 12167
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_UNABLE_TO_DOWNLOAD_SCRIPT"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The automatic proxy configuration script could not be downloaded. The INTERNET_FLAG_MUST_CACHE_REQUEST flag was set."
+		Case 12168
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_HTTP_REDIRECT_NEEDS_CONFIRMATION"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The redirection requires user confirmation."
+		Case 12169
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_SEC_INVALID_CERT"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "SSL certificate is invalid."
+		Case 12170
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_SEC_CERT_REVOKED"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "SSL certificate was revoked."
+		Case 12171
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_FAILED_DUETOSECURITYCHECK"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The function failed due to a security check."
+		Case 12172
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_NOT_INITIALIZED"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "Initialization of the WinINet API has not occurred. Indicates that a higher-level function, such as InternetOpen, has not been called yet."
+		Case 12174
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_INTERNET_LOGIN_FAILURE_DISPLAY_ENTITY_BODY"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "The MS-Logoff digest header has been returned from the Web site. This header specifically instructs the digest package to purge credentials for the associated realm. This error will only be returned if INTERNET_ERROR_MASK_LOGIN_FAILURE_DISPLAY_ENTITY_BODY has been set."
+		Case Else
+			If BitAND($iInfoLevel, 1) Then $sErrMsg = "ERROR_UNKNOWN"
+			If BitAND($iInfoLevel, 2) Then $sErrDesc = "Unidentified error - no description available."
+	EndSwitch
+	If $sErrMsg And $sErrDesc Then $sErrMsg &= ": "
+	Return $sErrMsg & $sErrDesc
+EndFunc   ;==>_InetGetErrorText
+
+;~ Func GetLatestVersionOld($sCmdDir)
+;~ 	$hBuildID = "0"
+;~ 	Local $aReturn[2] = [False, ""]
+;~ 	DirRemove($sCmdDir & "\appcache", 1)
+;~ 	DirRemove($sCmdDir & "\depotcache", 1)
+;~ 	$sAppInfoTemp = "app_info_" & StringRegExpReplace(_NowCalc(), "[\\\/\: ]", "_") & ".tmp"
+;~ 	$aSteamUpdateCheck = '"' & @ComSpec & '" /c "' & $sCmdDir & "\steamcmd.exe"" +login anonymous +app_info_update 1 +app_info_print " & $aSteamAppID & " +app_info_print " & $aSteamAppID & " +app_info_print " & $aSteamAppID & " +exit > " & $sAppInfoTemp
+;~ 	RunWait($aSteamUpdateCheck, $aSteamCMDDir, @SW_MINIMIZE)
+;~ 	Local Const $sFilePath = $sCmdDir & "\" & $sAppInfoTemp
+;~ 	;	Local Const $sFilePath = $sCmdDir & "\app_info.tmp"
+;~ 	Local $hFileOpen = FileOpen($sFilePath, 0)
+;~ 	Local $hFileRead1 = FileRead($hFileOpen)
+;~ 	If $hFileOpen = -1 Then
+;~ 		;		$aSteamRunCount = $aSteamRunCount + 1
+;~ 		;		If $aSteamRunCount = 3 Then
+;~ 		$aReturn[0] = False
+;~ 		;		Else
+;~ 		;			$aReturn[0] = True
+;~ 		LogWrite(" [Update] SteamCMD update check FAILED to create update file. Skipping this update check.")
+;~ 		;		EndIf
+;~ 	Else
+;~ 		;	Local $aString = _ArrayToString($hFileOpen)
+;~ 		If StringInStr($hFileRead1, "buildid") > 0 Then
+;~ 			Local $hFileReadArray = _StringBetween($hFileRead1, "branches", "AppID")
+;~ 			Local $hFileRead = _ArrayToString($hFileReadArray)
+;~ 			Local $hString1 = _StringBetween($hFileRead, $aServerVer, "timeupdated")
+;~ 			If @error Then
+;~ 				LogWrite(" [Update] ERROR!!! " & $aServerVer & " branch not found by SteamCMD")
+;~ 				_SplashOff()
+;~ 				For $x1 = 0 To 5
+;~ 					$tSplash = _Splash("ERROR! " & $aServerVer & " branch not found by SteamCMD.", 0, 300, 75)
+;~ 					Sleep(850)
+;~ 					ControlSetText($tSplash, "", "Static1", "")
+;~ 					Sleep(150)
+;~ 				Next
+;~ 				_SplashOff()
+;~ 			Else
+;~ 				Local $hString2 = StringSplit($hString1[0], '"', 2)
+;~ 				$hString3 = _ArrayToString($hString2)
+;~ 				Local $hString4 = StringRegExpReplace($hString3, "\t", "")
+;~ 				Local $hString5 = StringRegExpReplace($hString4, @CR & @LF, ".")
+;~ 				Local $hString6 = StringRegExpReplace($hString5, "{", "")
+;~ 				Local $hBuildIDArray = _StringBetween($hString6, "buildid||", "|.")
+;~ 				Local $hBuildID = _ArrayToString($hBuildIDArray)
+;~ 				LogWrite("", " [Update] Update Check via " & $aServerVer & " Branch. Latest version: " & $hBuildID)
+;~ 				If FileExists($sFilePath) Then
+;~ 					FileDelete($sFilePath)
+;~ 				EndIf
+;~ 				$aReturn[0] = True
+;~ 			EndIf
+;~ 		Else
+;~ 			;			$aSteamRunCount = $aSteamRunCount + 1
+;~ 			;			If $aSteamRunCount = 3 Then
+;~ 			$aReturn[0] = False
+;~ 			;			Else
+;~ 			LogWrite(" [Update] SteamCMD update check returned a FAILURE reponse. Skipping this update check.")
+;~ 			;				$aReturn[0] = True
+;~ 			;			EndIf
+;~ 		EndIf
+;~ 		FileClose($hFileOpen)
+;~ 	EndIf
+;~ 	$aReturn[1] = $hBuildID
+;~ 	Return $aReturn
+;~ EndFunc   ;==>GetLatestVersion
 
 Func GetInstalledVersion($sGameDir)
 	Local $aReturn[2] = [False, ""]
@@ -2206,12 +2465,12 @@ Func UpdateCheck($tAsk, $tSplash = 0, $tShowIfNoUpdate = False)
 	Else
 		If $aFirstBoot Or $tAsk Then
 			If $tSplash > 0 Then
-				ControlSetText($tSplash, "", "Static1", $aUtilName & " " & $aUtilVersion & " started." & @CRLF & @CRLF & "Acquiring latest BuildID from SteamCMD.")
+				ControlSetText($tSplash, "", "Static1", $aUtilName & " " & $aUtilVersion & " started." & @CRLF & @CRLF & "Acquiring latest BuildID.")
 			Else
-				$aSplash = _Splash($aUtilName & " " & $aUtilVersion & " started." & @CRLF & @CRLF & "Acquiring latest BuildID from SteamCMD.")
+				$aSplash = _Splash($aUtilName & " " & $aUtilVersion & " started." & @CRLF & @CRLF & "Acquiring latest BuildID.")
 			EndIf
 		EndIf
-		Local $aLatestVersion = GetLatestVersion($aSteamCMDDir)
+		Local $aLatestVersion = GetLatestVersion()
 	EndIf
 	If $aFirstBoot Or $tAsk Then
 		If $tSplash > 0 Then
@@ -2360,22 +2619,22 @@ Func SteamUpdate()
 	Local $sManifestExists = FileExists($aSteamCMDDir & "\steamapps\appmanifest_" & $aSteamAppID & ".acf")
 	If ($sManifestExists = 1) And ($aFirstBoot = 0) Then
 		FileMove($aSteamCMDDir & "\steamapps\appmanifest_" & $aSteamAppID & ".acf", $aSteamCMDDir & "\steamapps\appmanifest_" & $aSteamAppID & "_" & $TimeStamp & ".acf", 1)
-		LogWrite("", " Notice: Install manifest found at " & $aSteamCMDDir & "\steamapps\appmanifest_" & $aSteamAppID & ".acf & renamed to appmanifest_" & $aSteamAppID & "_" & $TimeStamp & ".acf")
+		LogWrite("", " [Update] Notice: Install manifest found at " & $aSteamCMDDir & "\steamapps\appmanifest_" & $aSteamAppID & ".acf & renamed to appmanifest_" & $aSteamAppID & "_" & $TimeStamp & ".acf")
 	Else
 		$aFirstBoot = 0
 	EndIf
 	If ($sManifestExists = 1) And ($aFirstBoot = 0) Then
 		FileMove($aServerDirLocal & "\steamapps\appmanifest_" & $aSteamAppID & ".acf", $aServerDirLocal & "\steamapps\appmanifest_" & $aSteamAppID & "_" & $TimeStamp & ".acf", 1)
-		LogWrite("", " Notice: Install manifest found at " & $aServerDirLocal & "\steamapps\appmanifest_" & $aSteamAppID & ".acf & renamed to appmanifest_" & $aSteamAppID & "_" & $TimeStamp & ".acf")
+		LogWrite("", " [Update] Notice: Install manifest found at " & $aServerDirLocal & "\steamapps\appmanifest_" & $aSteamAppID & ".acf & renamed to appmanifest_" & $aSteamAppID & "_" & $TimeStamp & ".acf")
 	Else
 		$aFirstBoot = 0
 	EndIf
 	$aSteamUpdateNow = False
 	If $aValidate = "yes" Then
-		LogWrite(" [Steam Update] Running SteamCMD " & $aServerVer & " branch with validate.", " [Steam Update] Running SteamCMD " & $aServerVer & " branch with validate: ['" & $aSteamUpdateCMDValY & "']")
+		LogWrite(" [Update] Running SteamCMD " & $aServerVer & " branch with validate.", " [Steam Update] Running SteamCMD " & $aServerVer & " branch with validate: ['" & $aSteamUpdateCMDValY & "']")
 		RunWait('"' & $aSteamUpdateCMDValY & '"')
 	Else
-		LogWrite(" [Steam Update] Running SteamCMD " & $aServerVer & " branch without validate.", " [Steam Update] Running SteamCMD " & $aServerVer & " branch without validate. ['" & $aSteamUpdateCMDValN & "']")
+		LogWrite(" [Update] Running SteamCMD " & $aServerVer & " branch without validate.", " [Steam Update] Running SteamCMD " & $aServerVer & " branch without validate. ['" & $aSteamUpdateCMDValN & "']")
 		RunWait('"' & $aSteamUpdateCMDValN & '"')
 	EndIf
 	_SplashOff()
@@ -2454,7 +2713,7 @@ Func UtilUpdate($tLink, $tDL, $tUtil, $tUtilName)
 	$tVer = StringSplit($hFileRead, "^", 2)
 	If UBound($tVer) < 2 Then $tErr = True
 	If $tErr Then
-		LogWrite(" [UTIL] " & $tUtilName & " update check failed to download latest version: " & $tLink)
+		LogWrite(" [ Util ] " & $tUtilName & " update check failed to download latest version: " & $tLink)
 		If $aShowUpdate Then
 			ControlSetText($aSplash, "", "Static1", $aUtilName & " update check failed." & @CRLF & "Please try again later.")
 			Sleep(2000)
@@ -2463,7 +2722,7 @@ Func UtilUpdate($tLink, $tDL, $tUtil, $tUtilName)
 	Else
 		If UBound($tVer) < 2 Then ReDim $tVer[2]
 		If $tVer[0] = $tUtil Then
-			LogWrite(" [UTIL] " & $tUtilName & " up to date.", " [UTIL] " & $tUtilName & " up to date. Version: " & $tVer[0] & " , Notes: " & $tVer[1])
+			LogWrite(" [ Util ] " & $tUtilName & " up to date.", " [ Util ] " & $tUtilName & " up to date. Version: " & $tVer[0] & " , Notes: " & $tVer[1])
 			If $aShowUpdate Then
 				ControlSetText($aSplash, "", "Static1", $aUtilName & " up to date . . .")
 				Sleep(2000)
@@ -2471,8 +2730,8 @@ Func UtilUpdate($tLink, $tDL, $tUtil, $tUtilName)
 				_SplashOff()
 			EndIf
 		Else
-			LogWrite(" [UTIL] New " & $aUtilName & " update available. Installed version: " & $tUtil & ", Latest version: " & $tVer[0] & ", Notes: " & $tVer[1])
-			FileWrite($aUtilUpdateFile, _NowCalc() & " [UTIL] New " & $aUtilName & " update available. Installed version: " & $tUtil & ", Latest version: " & $tVer[0] & ", Notes: " & $tVer[1])
+			LogWrite(" [ Util ] New " & $aUtilName & " update available. Installed version: " & $tUtil & ", Latest version: " & $tVer[0] & ", Notes: " & $tVer[1])
+			FileWrite($aUtilUpdateFile, _NowCalc() & " [ Util ] New " & $aUtilName & " update available. Installed version: " & $tUtil & ", Latest version: " & $tVer[0] & ", Notes: " & $tVer[1])
 			_SplashOff()
 			$tVer[1] = ReplaceReturn($tVer[1])
 			$tMB = MsgBox($MB_YESNOCANCEL, $aUtilityVer, "New " & $aUtilName & " update available. " & @CRLF & "Installed version: " & $tUtil & @CRLF & "Latest version: " & $tVer[0] & @CRLF & @CRLF & _
@@ -2497,7 +2756,7 @@ Func UtilUpdate($tLink, $tDL, $tUtil, $tUtilName)
 				_ExtractZip($tZIP, "", "readme.txt", @ScriptDir)
 				;				FileDelete(@ScriptDir & "\" & $tUtilName & "_" & $tVer[1] & ".zip")
 				If Not FileExists(@ScriptDir & "\" & $tUtilName & "_" & $tVer[0] & ".exe") Then
-					LogWrite(" [UTIL] ERROR! " & $tUtilName & ".exe download failed. [" & $tDL & "]")
+					LogWrite(" [ Util ] ERROR! " & $tUtilName & ".exe download failed. [" & $tDL & "]")
 					_SplashOff()
 					$tMB = MsgBox($MB_OKCANCEL, $aUtilityVer, "Download failed . . . " & @CRLF & "Go to """ & $tDL & """ to download latest version." & @CRLF & @CRLF & "Click (OK), (CANCEL), or wait 15 seconds, to resume current version.", 15)
 					$aSplash = _Splash("")
@@ -2505,7 +2764,7 @@ Func UtilUpdate($tLink, $tDL, $tUtil, $tUtilName)
 					_SplashOff()
 					$tMB = MsgBox($MB_OKCANCEL, $aUtilityVer, "Download complete. . . " & @CRLF & @CRLF & "Click (OK) to run new version (server will remain running) OR" & @CRLF & "Click (CANCEL), or wait 15 seconds, to resume current version.", 15)
 					If $tMB = 1 Then
-						LogWrite(" [" & $aGameName & "] Util Shutdown - Initiated by User to run update.")
+						LogWrite(" [ Util ] Util Shutdown - Initiated by User to run update.")
 						If $aRemoteRestartUse = "yes" Then
 							TCPShutdown()
 						EndIf
@@ -2517,10 +2776,10 @@ Func UtilUpdate($tLink, $tDL, $tUtil, $tUtilName)
 			ElseIf $tMB = 7 Then
 				$aUpdateUtil = "no"
 				IniWrite($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", "Check for " & $aUtilName & " updates? (yes/no) ###", "no")
-				LogWrite(" [UTIL] " & "Utility update check disabled. To enable update check, change [Check for Updates ###=yes] in the .ini.")
+				LogWrite(" [ Util ] " & "Utility update check disabled. To enable update check, change [Check for Updates ###=yes] in the .ini.")
 				$aSplash = _Splash("Utility update check disabled." & @CRLF & "To enable update check, change [Check for Updates ###=yes] in the .ini.", 5000, 500, 110)
 			ElseIf $tMB = 2 Then
-				LogWrite(" [UTIL] Utility update check canceled by user. Resuming utility . . .")
+				LogWrite(" [ Util ] Utility update check canceled by user. Resuming utility . . .")
 				$aSplash = _Splash("Utility update check canceled by user." & @CRLF & "Resuming utility . . .", 2000)
 			EndIf
 		EndIf
@@ -2840,7 +3099,7 @@ Func ReadUini($aIniFile, $sLogFile)
 	Global $aTelnetCheckYN = IniRead($aIniFile, " --------------- KEEP ALIVE WATCHDOG ---------------", "Use telnet to check if server is alive? (yes/no) ###", $iniCheck)
 	Global $aTelnetIP = IniRead($aIniFile, " --------------- KEEP ALIVE WATCHDOG ---------------", "Telnet IP (ex. 127.0.0.1 - Leave BLANK for server IP) ###", $iniCheck)
 	Global $aTelnetCheckSec = IniRead($aIniFile, " --------------- KEEP ALIVE WATCHDOG ---------------", "Telnet check interval in seconds (30-900) ###", $iniCheck)
-	Global $aWatchdogWaitServerUpdate = IniRead($aIniFile, " --------------- KEEP ALIVE WATCHDOG ---------------", "Pause watchdog for _ minutes after server updated to allow map generation (1-360) ###", $iniCheck)
+	Global $aWatchdogWaitServerUpdate = IniRead($aIniFile, " --------------- KEEP ALIVE WATCHDOG ---------------", "Pause watchdog for _ minutes after server updated to allow for update processes to complete (1-360) ###", $iniCheck)
 	Global $aWatchdogWaitServerStart = IniRead($aIniFile, " --------------- KEEP ALIVE WATCHDOG ---------------", "Pause watchdog for _ minutes after server started to allow server to come online (1-60) ###", $iniCheck)
 	Global $aWatchdogAttemptsBeforeRestart = IniRead($aIniFile, " --------------- KEEP ALIVE WATCHDOG ---------------", "Number of failed responses (after server has responded at least once) before restarting server (1-10) (Default is 3) ###", $iniCheck)
 
@@ -2910,6 +3169,8 @@ Func ReadUini($aIniFile, $sLogFile)
 	Global $sUseDiscordBotPlayerChatYN = IniRead($aIniFile, " --------------- DISCORD INTEGRATION --------------- ", "Send Discord message for Player Chat? (yes/no) ###", $iniCheck)
 ;~ 	Global $sUseDiscordBotPlayerDiedYN = IniRead($aIniFile, " --------------- DISCORD INTEGRATION --------------- ", "Send Discord message when player dies? (yes/no) ###", $iniCheck)
 	Global $sUseDiscordBotFirstAnnouncement = IniRead($aIniFile, " --------------- DISCORD INTEGRATION --------------- ", "Send Discord message for first ANNOUNCEMENT only? (reduces bot spam)(yes/no) ###", $iniCheck)
+	Global $sUseDiscordBotServerCrashMsgFailedYN = IniRead($aIniFile, " --------------- DISCORD INTEGRATION --------------- ", "Send Discord message when Watchdog first detects server crash? (yes/no) ###", $iniCheck)
+	Global $sUseDiscordBotServerCrashMsgRestartYN = IniRead($aIniFile, " --------------- DISCORD INTEGRATION --------------- ", "Send Discord message when Watchdog detects server crash and will restart server? (yes/no) ###", $iniCheck)
 
 	Global $sDiscordDailyMessage = IniRead($aIniFile, " --------------- DISCORD MESSAGES --------------- ", "Announcement DAILY (\m - minutes) ###", $iniCheck)
 	Global $sDiscordUpdateMessage = IniRead($aIniFile, " --------------- DISCORD MESSAGES --------------- ", "Announcement UPDATES (\m - minutes) ###", $iniCheck)
@@ -2922,6 +3183,8 @@ Func ReadUini($aIniFile, $sLogFile)
 	Global $sDiscordPlayerOnlineMsg = IniRead($aIniFile, " --------------- DISCORD MESSAGES --------------- ", "Online Player Sub-Message (\p - Player Name(s) of player(s) online, \n Next Line) ###", $iniCheck)
 ;~ 	Global $sDiscordPlayerDiedMsg = IniRead($aIniFile, " --------------- DISCORD MESSAGES --------------- ", "Player Died Message (\p - Player Name, \n Next Line) ###", $iniCheck)
 	Global $sDiscordPlayerChatMsg = IniRead($aIniFile, " --------------- DISCORD MESSAGES --------------- ", "Player Chat (\p - Player Name, \m Message, \t Msg type (ex. Global,Friend)", $iniCheck)
+	Global $sDiscordServerCrashMsgFailed = IniRead($aIniFile, " --------------- DISCORD MESSAGES --------------- ", "Announcement when server crash is first detected by Watchdog ###", $iniCheck)
+	Global $sDiscordServerCrashMsgRestart = IniRead($aIniFile, " --------------- DISCORD MESSAGES --------------- ", "Announcement when server crash is forcing a server roboot by Watchdog ###", $iniCheck)
 
 	Global $sUseTwitchBotDaily = IniRead($aIniFile, " --------------- TWITCH INTEGRATION --------------- ", "Send Twitch message for DAILY reboot? (yes/no) ###", $iniCheck)
 	Global $sUseTwitchBotUpdate = IniRead($aIniFile, " --------------- TWITCH INTEGRATION --------------- ", "Send Twitch message for UPDATE reboot? (yes/no) ###", $iniCheck)
@@ -2960,8 +3223,12 @@ Func ReadUini($aIniFile, $sLogFile)
 	Global $aTelnetTrafficCheckSec = IniRead($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", "Telnet: Check traffic every _ seconds) (1-10) ###", $iniCheck)
 	Global $aUpdateSource = IniRead($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", "For update checks, use (0)SteamCMD or (1)SteamDB.com ###", $iniCheck)
 	Global $sObfuscatePass = IniRead($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", "Hide passwords in log files? (yes/no) ###", $iniCheck)
+	Global $sObfuscatePass = IniRead($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", "Hide passwords in log files? (yes/no) ###", $iniCheck)
+	Global $sObfuscatePass = IniRead($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", "Hide passwords in log files? (yes/no) ###", $iniCheck)
 	Global $aUpdateUtil = IniRead($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", "Check for " & $aUtilName & " updates? (yes/no) ###", $iniCheck)
 	Global $aUtilBetaYN = IniRead($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", $aUtilName & " version: (0)Stable, (1)Beta ###", $iniCheck)
+	Global $aEAH_Exe = IniRead($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", "EAH exe filename ###", $iniCheck)
+	Global $aEAH_Dir = IniRead($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", "EAH exe folder ###", $iniCheck)
 	Global $aExternalScriptHideYN = IniRead($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", "Hide external scripts when executed? (if yes, scripts may not execute properly) (yes/no) ###", $iniCheck)
 ;~ 	Global $aFPAutoUpdateYN = IniRead($aIniFile, " --------------- (ALMOST) FUTURE PROOF UPDATE OPTIONS --------------- ", "Automatically import old priority settings into new config? (yes/no) ###", $iniCheck)
 ;~ 	Global $aFPRenameModsYN = IniRead($aIniFile, " --------------- (ALMOST) FUTURE PROOF UPDATE OPTIONS --------------- ", "Rename the Mod Folder (therefore saving and disabling it) if Future Proof was needed (3 consecutive failed starts after an update)? (yes/no) ###", $iniCheck)
@@ -3060,7 +3327,7 @@ Func ReadUini($aIniFile, $sLogFile)
 		$iIniError = $iIniError & "AppendVerShort, "
 	EndIf
 	If $iniCheck = $aEAH_Use Then
-		$aEAH_Use = "Updates"
+		$aEAH_Use = "Always"
 		$iIniFail += 1
 		$iIniError = $iIniError & "EAH_Use, "
 	EndIf
@@ -3114,20 +3381,20 @@ Func ReadUini($aIniFile, $sLogFile)
 		$iIniError = $iIniError & "RemoteRestartCode, "
 	EndIf
 	If $iniCheck = $aQueryYN Then
-		$aQueryYN = "no"
+		$aQueryYN = "yes"
 		$iIniFail += 1
 		$iIniError = $iIniError & "QueryYN, "
 	EndIf
 	If $iniCheck = $aQueryCheckSec Then
-		$aQueryCheckSec = "180"
+		$aQueryCheckSec = "60"
 		$iIniFail += 1
 		$iIniError = $iIniError & "TelnetCheckSec, "
 	ElseIf $aQueryCheckSec < 30 Then
 		$aQueryCheckSec = 30
-		LogWrite(" [Notice] Query Port server-is-alive check interval was out of range. Interval set to: " & $aQueryCheckSec & " seconds.")
+		LogWrite(" [Config] Query Port server-is-alive check interval was out of range. Interval set to: " & $aQueryCheckSec & " seconds.")
 	ElseIf $aQueryCheckSec > 900 Then
 		$aQueryCheckSec = 900
-		LogWrite(" [Notice] Query Port server-is-alive check interval was out of range. Interval set to: " & $aQueryCheckSec & " seconds.")
+		LogWrite(" [Config] Query Port server-is-alive check interval was out of range. Interval set to: " & $aQueryCheckSec & " seconds.")
 	EndIf
 	If $iniCheck = $aQueryIP Then
 		$aQueryIP = "127.0.0.1"
@@ -3145,26 +3412,26 @@ Func ReadUini($aIniFile, $sLogFile)
 		$iIniError = $iIniError & "TelnetCheckYN, "
 	EndIf
 	If $iniCheck = $aTelnetCheckSec Then
-		$aTelnetCheckSec = "180"
+		$aTelnetCheckSec = "60"
 		$iIniFail += 1
 		$iIniError = $iIniError & "TelnetCheckSec, "
 	ElseIf $aTelnetCheckSec < 30 Then
 		$aTelnetCheckSec = 30
-		LogWrite(" [Notice] Telnet server-is-alive check interval was out of range. Interval set to: " & $aTelnetCheckSec & " seconds.")
+		LogWrite(" [Config] Telnet server-is-alive check interval was out of range. Interval set to: " & $aTelnetCheckSec & " seconds.")
 	ElseIf $aTelnetCheckSec > 900 Then
 		$aTelnetCheckSec = 900
-		LogWrite(" [Notice] Telnet server-is-alive check interval was out of range. Interval set to: " & $aTelnetCheckSec & " seconds.")
+		LogWrite(" [Config] Telnet server-is-alive check interval was out of range. Interval set to: " & $aTelnetCheckSec & " seconds.")
 	EndIf
 	If $iniCheck = $aWatchdogWaitServerUpdate Then
-		$aWatchdogWaitServerUpdate = "60"
+		$aWatchdogWaitServerUpdate = "5"
 		$iIniFail += 1
 		$iIniError = $iIniError & "TelnetDelayAfterUpdate, "
 	ElseIf $aWatchdogWaitServerUpdate < 1 Then
 		$aWatchdogWaitServerUpdate = 1
-		LogWrite(" [Notice] Telnet server-is-alive check interval was out of range. Interval set to: " & $aWatchdogWaitServerUpdate & " minutes.")
+		LogWrite(" [Config] Telnet server-is-alive check interval was out of range. Interval set to: " & $aWatchdogWaitServerUpdate & " minutes.")
 	ElseIf $aWatchdogWaitServerUpdate > 360 Then
 		$aWatchdogWaitServerUpdate = 360
-		LogWrite(" [Notice] Telnet server-is-alive check interval was out of range. Interval set to: " & $aWatchdogWaitServerUpdate & " minutes.")
+		LogWrite(" [Config] Telnet server-is-alive check interval was out of range. Interval set to: " & $aWatchdogWaitServerUpdate & " minutes.")
 	EndIf
 	If $iniCheck = $aWatchdogWaitServerStart Then
 		$aWatchdogWaitServerStart = "5"
@@ -3172,10 +3439,10 @@ Func ReadUini($aIniFile, $sLogFile)
 		$iIniError = $iIniError & "WatchdogWaitServerStart, "
 	ElseIf $aWatchdogWaitServerStart < 1 Then
 		$aWatchdogWaitServerStart = 1
-		LogWrite(" [Watchdog] Watchdog wait for server to start was out of range. Interval set to: " & $aWatchdogWaitServerStart & " minutes.")
+		LogWrite(" [Config] Watchdog wait for server to start was out of range. Interval set to: " & $aWatchdogWaitServerStart & " minutes.")
 	ElseIf $aWatchdogWaitServerStart > 60 Then
 		$aWatchdogWaitServerStart = 60
-		LogWrite(" [Watchdog] Watchdog wait for server to start was out of range. Interval set to: " & $aWatchdogWaitServerStart & " minutes.")
+		LogWrite(" [Config] Watchdog wait for server to start was out of range. Interval set to: " & $aWatchdogWaitServerStart & " minutes.")
 	EndIf
 	If $iniCheck = $aWatchdogAttemptsBeforeRestart Then
 		$aWatchdogAttemptsBeforeRestart = "3"
@@ -3183,10 +3450,10 @@ Func ReadUini($aIniFile, $sLogFile)
 		$iIniError = $iIniError & "WatchdogAttemptsBeforeRestart, "
 	ElseIf $aWatchdogAttemptsBeforeRestart < 1 Then
 		$aWatchdogAttemptsBeforeRestart = 1
-		LogWrite(" [Watchdog] Watchdog Attempts Before Restart was out of range. Attempts set to: " & $aWatchdogAttemptsBeforeRestart & ".")
+		LogWrite(" [Config] Watchdog Attempts Before Restart was out of range. Attempts set to: " & $aWatchdogAttemptsBeforeRestart & ".")
 	ElseIf $aWatchdogAttemptsBeforeRestart > 10 Then
 		$aWatchdogAttemptsBeforeRestart = 10
-		LogWrite(" [Watchdog] Watchdog Attempts Before Restart was out of range. Attempts set to: " & $aWatchdogAttemptsBeforeRestart & ".")
+		LogWrite(" [Config] Watchdog Attempts Before Restart was out of range. Attempts set to: " & $aWatchdogAttemptsBeforeRestart & ".")
 	EndIf
 	If $iniCheck = $sObfuscatePass Then
 		$sObfuscatePass = "no"
@@ -3204,7 +3471,7 @@ Func ReadUini($aIniFile, $sLogFile)
 		$iIniError = $iIniError & "UpdateCheckInterval, "
 	ElseIf $aUpdateCheckInterval < 5 Then
 		$aUpdateCheckInterval = 5
-		LogWrite(" [Notice] Update check interval was out of range. Interval set to: " & $aUpdateCheckInterval & " minutes.")
+		LogWrite(" [Config] Update check interval was out of range. Interval set to: " & $aUpdateCheckInterval & " minutes.")
 	EndIf
 	If $iniCheck = $aRestartDaily Then
 		$aRestartDaily = "yes"
@@ -3540,6 +3807,16 @@ Func ReadUini($aIniFile, $sLogFile)
 		$iIniFail += 1
 		$iIniError = $iIniError & "UseDiscordBotFirstAnnouncement, "
 	EndIf
+	If $iniCheck = $sUseDiscordBotServerCrashMsgFailedYN Then
+		$sUseDiscordBotServerCrashMsgFailedYN = "yes"
+		$iIniFail += 1
+		$iIniError = $iIniError & "UseDiscordBotServerCrashMsgFailedYN, "
+	EndIf
+	If $iniCheck = $sUseDiscordBotServerCrashMsgRestartYN Then
+		$sUseDiscordBotServerCrashMsgRestartYN = "yes"
+		$iIniFail += 1
+		$iIniError = $iIniError & "UseDiscordBotServerCrashMsgRestartYN, "
+	EndIf
 	If $iniCheck = $sDiscordPlayersMsg Then
 		$sDiscordPlayersMsg = 'Players Online: **\o / \m**   :rocket:  \a\n\j\l'
 		$iIniFail += 1
@@ -3574,6 +3851,16 @@ Func ReadUini($aIniFile, $sLogFile)
 		$sDiscordPlayerChatMsg = '[\t] **\p**: \m'
 		$iIniFail += 1
 		$iIniError = $iIniError & "DiscordPlayerChatMsg, "
+	EndIf
+	If $iniCheck = $sDiscordServerCrashMsgFailed Then
+		$sDiscordServerCrashMsgFailed = ':warning: Server crash detected. Server will restart if no response in one minute.'
+		$iIniFail += 1
+		$iIniError = $iIniError & "DiscordServerCrashMsgFailed, "
+	EndIf
+	If $iniCheck = $sDiscordServerCrashMsgRestart Then
+		$sDiscordServerCrashMsgRestart = ':exclamation::exclamation: Server crash detected. RESTARTING SERVER :exclamation::exclamation:'
+		$iIniFail += 1
+		$iIniError = $iIniError & "DiscordServerCrashMsgRestart, "
 	EndIf
 	If $iniCheck = $sUseTwitchBotDaily Then
 		$sUseTwitchBotDaily = "no"
@@ -3700,6 +3987,11 @@ Func ReadUini($aIniFile, $sLogFile)
 		$iIniFail += 1
 		$iIniError = $iIniError & "ExternalScriptRemoteWait, "
 	EndIf
+	If $iniCheck = $aEAH_Exe Then
+		$aEAH_Exe = "EmpAdminHelper.exe"
+		$iIniFail += 1
+		$iIniError = $iIniError & "EAH_Exe, "
+	EndIf
 	If $iniCheck = $aExternalScriptHideYN Then
 		$aExternalScriptHideYN = "no"
 		$iIniFail += 1
@@ -3806,33 +4098,19 @@ Func ReadUini($aIniFile, $sLogFile)
 	$aSteamCMDDir = RemoveInvalidCharacters($aSteamCMDDir)
 	$aSteamCMDDir = RemoveTrailingSlash($aSteamCMDDir)
 	$aConfigFile = RemoveInvalidCharacters($aConfigFile)
-
-	If $sUseDiscordBotRemoteRestart = "yes" Or $sUseDiscordBotDaily = "yes" Or $sUseDiscordBotUpdate = "yes" Or $sUseTwitchBotRemoteRestart = "yes" Or $sUseTwitchBotDaily = "yes" Or $sUseTwitchBotUpdate = "yes" Or $sInGameAnnounce = "yes" Then
-		Global $aDailyMsgInGame = AnnounceReplaceTime($sAnnounceNotifyTime1, $sInGameDailyMessage)
-		Global $aDailyMsgDiscord = AnnounceReplaceTime($sAnnounceNotifyTime1, $sDiscordDailyMessage)
-		Global $aDailyMsgTwitch = AnnounceReplaceTime($sAnnounceNotifyTime1, $sTwitchDailyMessage)
-		$sAnnounceNotifyTime1 = AddZero($sAnnounceNotifyTime1)
-		Global $aDailyTime = StringSplit($sAnnounceNotifyTime1, ",")
-		Global $aDailyCnt = Int($aDailyTime[0])
-		Global $aUpdateMsgInGame = AnnounceReplaceTime($sAnnounceNotifyTime2, $sInGameUpdateMessage)
-		Global $aUpdateMsgDiscord = AnnounceReplaceTime($sAnnounceNotifyTime2, $sDiscordUpdateMessage)
-		Global $aUpdateMsgTwitch = AnnounceReplaceTime($sAnnounceNotifyTime2, $sTwitchUpdateMessage)
-		$sAnnounceNotifyTime2 = AddZero($sAnnounceNotifyTime2)
-		Global $aUpdateTime = StringSplit($sAnnounceNotifyTime2, ",")
-		Global $aUpdateCnt = Int($aUpdateTime[0])
-		Global $aRemoteMsgInGame = AnnounceReplaceTime($sAnnounceNotifyTime3, $sInGameRemoteRestartMessage)
-		Global $aRemoteMsgDiscord = AnnounceReplaceTime($sAnnounceNotifyTime3, $sDiscordRemoteRestartMessage)
-		Global $aRemoteMsgTwitch = AnnounceReplaceTime($sAnnounceNotifyTime3, $sTwitchRemoteRestartMessage)
-		$sAnnounceNotifyTime3 = AddZero($sAnnounceNotifyTime3)
-		Global $aRemoteTime = StringSplit($sAnnounceNotifyTime3, ",")
-		Global $aRemoteCnt = Int($aRemoteTime[0])
-		Global $aDelayShutdownTime = Int($aDailyTime[$aDailyCnt])
-		DailyRestartOffset($bRestartHours, $bRestartMin, $aDelayShutdownTime)
-	Else
-		Global $aDelayShutdownTime = 0
+	If $aEAH_Dir = "Temp" Then
+		$aEAH_Dir = $aServerDirLocal & "\DedicatedServer\EmpyrionAdminHelper"
+		IniWrite($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", "EAH exe folder ###", $aEAH_Dir)
 	EndIf
-	LogWrite("", " . . . Server Folder = " & $aServerDirLocal)
-	LogWrite("", " . . . SteamCMD Folder = " & $aSteamCMDDir)
+	If $iniCheck = $aEAH_Dir Then
+		$aEAH_Dir = $aServerDirLocal & "\DedicatedServer\EmpyrionAdminHelper"
+		$iIniFail += 1
+		$iIniError = $iIniError & "EAH_Dir, "
+	EndIf
+	$tReWriteTF = _UpdateAnnouncements()
+	If $tReWriteTF Then UpdateIni($aIniFile)
+	LogWrite("", " [Config] . . . Server Folder = " & $aServerDirLocal)
+	LogWrite("", " [Config] . . . SteamCMD Folder = " & $aSteamCMDDir)
 	_SteamCMDCommandlineRead()
 	If StringLen($aSteamUpdateCommandline) < 20 Then _SteamCMDCreate(True)
 	If FileExists($aBackupOutputFolder) = 0 Then DirCreate($aBackupOutputFolder)
@@ -3840,6 +4118,41 @@ Func ReadUini($aIniFile, $sLogFile)
 		iniFileCheck($aIniFile, $iIniFail, $iIniError)
 	EndIf
 EndFunc   ;==>ReadUini
+Func _UpdateAnnouncements()
+	Local $tReWriteTF = False
+	If $sUseDiscordBotRemoteRestart = "yes" Or $sUseDiscordBotDaily = "yes" Or $sUseDiscordBotUpdate = "yes" Or $sUseTwitchBotRemoteRestart = "yes" Or $sUseTwitchBotDaily = "yes" Or _
+			$sUseTwitchBotUpdate = "yes" Or $sInGameAnnounce = "yes" Then
+		$sAnnounceNotifyTime1 = _SortString($sAnnounceNotifyTime1)
+		If @error Then $tReWriteTF = True
+		$sAnnounceNotifyTime2 = _SortString($sAnnounceNotifyTime2)
+		If @error Then $tReWriteTF = True
+		$sAnnounceNotifyTime3 = _SortString($sAnnounceNotifyTime3)
+		If @error Then $tReWriteTF = True
+		$tAnnounceNotifyTime1 = AddZero($sAnnounceNotifyTime1)
+		$tAnnounceNotifyTime2 = AddZero($sAnnounceNotifyTime2)
+		$tAnnounceNotifyTime3 = AddZero($sAnnounceNotifyTime3)
+		Global $aDailyMsgInGame = AnnounceReplaceTime($tAnnounceNotifyTime1, $sInGameDailyMessage)
+		Global $aDailyMsgDiscord = AnnounceReplaceTime($tAnnounceNotifyTime1, $sDiscordDailyMessage)
+		Global $aDailyMsgTwitch = AnnounceReplaceTime($tAnnounceNotifyTime1, $sTwitchDailyMessage)
+		Global $aDailyTime = StringSplit($tAnnounceNotifyTime1, ",")
+		Global $aDailyCnt = Int($aDailyTime[0])
+		Global $aUpdateMsgInGame = AnnounceReplaceTime($tAnnounceNotifyTime2, $sInGameUpdateMessage)
+		Global $aUpdateMsgDiscord = AnnounceReplaceTime($tAnnounceNotifyTime2, $sDiscordUpdateMessage)
+		Global $aUpdateMsgTwitch = AnnounceReplaceTime($tAnnounceNotifyTime2, $sTwitchUpdateMessage)
+		Global $aUpdateTime = StringSplit($tAnnounceNotifyTime2, ",")
+		Global $aUpdateCnt = Int($aUpdateTime[0])
+		Global $aRemoteMsgInGame = AnnounceReplaceTime($tAnnounceNotifyTime3, $sInGameRemoteRestartMessage)
+		Global $aRemoteMsgDiscord = AnnounceReplaceTime($tAnnounceNotifyTime3, $sDiscordRemoteRestartMessage)
+		Global $aRemoteMsgTwitch = AnnounceReplaceTime($tAnnounceNotifyTime3, $sTwitchRemoteRestartMessage)
+		Global $aRemoteTime = StringSplit($tAnnounceNotifyTime3, ",")
+		Global $aRemoteCnt = Int($aRemoteTime[0])
+		Global $aDelayShutdownTime = Int($aDailyTime[$aDailyCnt])
+		DailyRestartOffset($bRestartHours, $bRestartMin, $aDelayShutdownTime)
+	Else
+		Global $aDelayShutdownTime = 0
+	EndIf
+	Return $tReWriteTF
+EndFunc   ;==>_UpdateAnnouncements
 Func _RestartUtil($fQuickRebootTF = True, $tAdmin = False) ; Thanks Yashied!  https://www.autoitscript.com/forum/topic/111215-restart-udf/
 	Local $Pid
 	Local $xArray[13]
@@ -3931,8 +4244,8 @@ Func iniFileCheck($aIniFile, $iIniFail, $iIniError)
 		;		FileWriteLine($aIniFailFile, _NowCalc() & " INI MISMATCH: Found " & $iIniFail & " missing variable(s) in " & $aUtilName & ".ini. Backup created and all existing settings transfered to new INI. Please modify INI and restart.")
 		Local $iIniErrorCRLF = StringRegExpReplace($iIniError, ", ", @CRLF & @TAB)
 		FileWriteLine($aIniFailFile, _NowCalc() & @CRLF & " ---------- Parameters missing or changed ----------" & @CRLF & @CRLF & @TAB & $iIniErrorCRLF)
-		LogWrite(" INI MISMATCH: Found " & $iIniFail & " missing variable(s) in " & $aUtilName & ".ini. Backup created and all existing settings transfered to new INI. Please modify INI and restart.")
-		LogWrite(" INI MISMATCH: Parameters missing: " & $iIniFail)
+		LogWrite(" [Config] INI MISMATCH: Found " & $iIniFail & " missing variable(s) in " & $aUtilName & ".ini. Backup created and all existing settings transfered to new INI. Please modify INI and restart.")
+		LogWrite(" [Config] INI MISMATCH: Parameters missing: " & $iIniFail)
 		_SplashOff()
 		MsgBox(4096, "INI MISMATCH", "INI FILE WAS UPDATED." & @CRLF & "Found " & $iIniFail & " missing variable(s) in " & $aUtilName & ".ini:" & @CRLF & @CRLF & $iIniError & @CRLF & @CRLF & _
 				"Backup created and all existing settings transfered to new INI." & @CRLF & @CRLF & "Click OK to open config." & @CRLF & @CRLF & "File created: ___INI_FAIL_VARIABLES___.txt", 60)
@@ -3979,7 +4292,7 @@ Func UpdateIni($aIniFile)
 ;~ 	IniWrite($aIniFile, " --------------- APPEND SERVER VERSION TO NAME --------------- ", "Append Server Version (ex. Alpha 16.4 (b8)) at END of Server Name? (yes/no) ###", $aAppendVerEnd)
 ;~ 	IniWrite($aIniFile, " --------------- APPEND SERVER VERSION TO NAME --------------- ", "Use SHORT name (B9) or LONG (Alpha 17.1 (B9))? (short/long) ###", $aAppendVerShort)
 	FileWriteLine($aIniFile, @CRLF)
-	IniWrite($aIniFile, " --------------- KEEP ALIVE WATCHDOG ---------------", "Pause watchdog for _ minutes after server updated to allow map generation (1-360) ###", $aWatchdogWaitServerUpdate)
+	IniWrite($aIniFile, " --------------- KEEP ALIVE WATCHDOG ---------------", "Pause watchdog for _ minutes after server updated to allow for update processes to complete (1-360) ###", $aWatchdogWaitServerUpdate)
 	IniWrite($aIniFile, " --------------- KEEP ALIVE WATCHDOG ---------------", "Pause watchdog for _ minutes after server started to allow server to come online (1-60) ###", $aWatchdogWaitServerStart)
 	IniWrite($aIniFile, " --------------- KEEP ALIVE WATCHDOG --------------- ", "Number of failed responses (after server has responded at least once) before restarting server (1-10) (Default is 3) ###", $aWatchdogAttemptsBeforeRestart)
 	IniWrite($aIniFile, " --------------- KEEP ALIVE WATCHDOG --------------- ", "Use Query Port to check if server is alive? (yes/no) ###", $aQueryYN)
@@ -4062,6 +4375,8 @@ Func UpdateIni($aIniFile)
 	IniWrite($aIniFile, " --------------- DISCORD INTEGRATION --------------- ", "Send Discord message for Player Chat? (yes/no) ###", $sUseDiscordBotPlayerChatYN)
 ;~ 	IniWrite($aIniFile, " --------------- DISCORD INTEGRATION --------------- ", "Send Discord message when player dies? (yes/no) ###", $sUseDiscordBotPlayerDiedYN)
 	IniWrite($aIniFile, " --------------- DISCORD INTEGRATION --------------- ", "Send Discord message for first ANNOUNCEMENT only? (reduces bot spam)(yes/no) ###", $sUseDiscordBotFirstAnnouncement)
+	IniWrite($aIniFile, " --------------- DISCORD INTEGRATION --------------- ", "Send Discord message when Watchdog first detects server crash? (yes/no) ###", $sUseDiscordBotServerCrashMsgFailedYN)
+	IniWrite($aIniFile, " --------------- DISCORD INTEGRATION --------------- ", "Send Discord message when Watchdog detects server crash and will restart server? (yes/no) ###", $sUseDiscordBotServerCrashMsgRestartYN)
 	FileWriteLine($aIniFile, @CRLF)
 	IniWrite($aIniFile, " --------------- DISCORD MESSAGES --------------- ", "Announcement DAILY (\m - minutes) ###", $sDiscordDailyMessage)
 	IniWrite($aIniFile, " --------------- DISCORD MESSAGES --------------- ", "Announcement UPDATES (\m - minutes) ###", $sDiscordUpdateMessage)
@@ -4075,6 +4390,8 @@ Func UpdateIni($aIniFile)
 	IniWrite($aIniFile, " --------------- DISCORD MESSAGES --------------- ", "Announcement Online Player separator (Use ; for [space]) ###", $aPlayerSeparator)
 ;~ 	IniWrite($aIniFile, " --------------- DISCORD MESSAGES --------------- ", "Player Died Message (\p - Player Name, \n Next Line) ###", $sDiscordPlayerDiedMsg)
 	IniWrite($aIniFile, " --------------- DISCORD MESSAGES --------------- ", "Player Chat (\p - Player Name, \m Message, \t Msg type (ex. Global,Friend)", $sDiscordPlayerChatMsg)
+	IniWrite($aIniFile, " --------------- DISCORD MESSAGES --------------- ", "Announcement when server crash is first detected by Watchdog ###", $sDiscordServerCrashMsgFailed)
+	IniWrite($aIniFile, " --------------- DISCORD MESSAGES --------------- ", "Announcement when server crash is forcing a server roboot by Watchdog ###", $sDiscordServerCrashMsgRestart)
 	FileWriteLine($aIniFile, @CRLF)
 	IniWrite($aIniFile, " --------------- TWITCH INTEGRATION --------------- ", "Send Twitch message for DAILY reboot? (yes/no) ###", $sUseTwitchBotDaily)
 	IniWrite($aIniFile, " --------------- TWITCH INTEGRATION --------------- ", "Send Twitch message for UPDATE reboot? (yes/no) ###", $sUseTwitchBotUpdate)
@@ -4120,6 +4437,8 @@ Func UpdateIni($aIniFile)
 	IniWrite($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", "For update checks, use (0)SteamCMD or (1)SteamDB.com ###", $aUpdateSource)
 	IniWrite($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", "Hide passwords in log files? (yes/no) ###", $sObfuscatePass)
 	IniWrite($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", "Hide external scripts when executed? (if yes, scripts may not execute properly) (yes/no) ###", $aExternalScriptHideYN)
+	IniWrite($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", "EAH exe filename ###", $aEAH_Exe)
+	IniWrite($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", "EAH exe folder ###", $aEAH_Dir)
 	IniWrite($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", "Check for " & $aUtilName & " updates? (yes/no) ###", $aUpdateUtil)
 	IniWrite($aIniFile, " --------------- " & StringUpper($aUtilName) & " MISC OPTIONS --------------- ", $aUtilName & " version: (0)Stable, (1)Beta ###", $aUtilBetaYN)
 ;~ 	FileWriteLine($aIniFile, @CRLF)
@@ -4193,7 +4512,7 @@ Func _CheckForExistingServer()
 	Return $tPID
 EndFunc   ;==>_CheckForExistingServer
 Func _CheckForExistingPlink()
-	Local $xFileName = _PathSplit($aFilePlink, "", "", "", "")
+	Local $xFileName = _PathSplitEx($aFilePlink)
 	Local $tFileName = $xFileName[3] & $xFileName[4]
 	Local $tReturn2 = 0
 	Local $tProcess = ProcessList($tFileName)
@@ -4215,7 +4534,7 @@ Func PIDReadServer($tSplash = 0)
 	Local $tReturn1 = _CheckForExistingServer()
 	If $tReturn1 > 0 Then $tReturn = $tReturn1
 	If $tReturn = "0" Then
-		LogWrite(" [Util] No existing server found. Will start new server.")
+		LogWrite(" [ Util ] No existing server found. Will start new server.")
 		$aNoExistingPID = True
 	Else
 		$aNoExistingPID = False
@@ -4238,7 +4557,7 @@ Func _CheckForExistingEAH($tSplash = 0)
 	Local $tPID = _CheckIfProcessRunning($aEAH_Exe, $aEAH_Dir)
 	If $tPID > 0 Then
 		$aEAH_PID = $tPID
-		LogWrite(" [EAH] Existing " & $aEAH_Name & " process found. PID(" & $aEAH_PID & ")")
+		LogWrite(" [ EAH  ] Existing " & $aEAH_Name & " process found. PID(" & $aEAH_PID & ")")
 		IniWrite($aUtilCFGFile, "CFG", "EAH_PID", $aEAH_PID)
 		If $tSplash > 0 Then
 			ControlSetText($tSplash, "", "Static1", $aUtilName & " " & $aUtilVersion & " started." & @CRLF & @CRLF & "Existing EAH found." & @CRLF & "PID(" & $aEAH_PID & ")")
@@ -4271,7 +4590,7 @@ Func TrayExitCloseN()
 		MsgBox(4096, $aUtilityVer, "Thank you for using " & $aUtilName & "." & @CRLF & @CRLF & "SERVER IS STILL RUNNING ! ! !" & @CRLF & @CRLF & _
 				"Please report any problems or comments to: " & @CRLF & "Discord: http://discord.gg/EU7pzPs or " & @CRLF & _
 				"Forum: http://phoenix125.createaforum.com/index.php. " & @CRLF & @CRLF & "Visit http://www.Phoenix125.com", 20)
-		LogWrite(" " & $aUtilityVer & " Stopped by User")
+		LogWrite(" [Server] Stopped by User")
 		IniWrite($aUtilCFGFile, "CFG", "PID", $aServerPID)
 		If $aRemoteRestartUse = "yes" Then
 			TCPShutdown()
@@ -4284,7 +4603,7 @@ Func TrayExitCloseN()
 EndFunc   ;==>TrayExitCloseN
 
 Func TrayExitCloseY()
-	LogWrite(" [" & $aGameName & "] Utility exit with server shutdown initiated by user via tray icon (Exit: Shut Down Servers).")
+	LogWrite(" [Server] Utility exit with server shutdown initiated by user via tray icon (Exit: Shut Down Servers).")
 	$tMB = MsgBox($MB_YESNOCANCEL, $aUtilName, "Do you wish to shut down server and exit this utility?" & @CRLF & @CRLF & _
 			"Click (YES) to Shutdown server and exit." & @CRLF & _
 			"Click (NO) or (CANCEL) to cancel.", 15)
@@ -4293,8 +4612,7 @@ Func TrayExitCloseY()
 		_SplashOff()
 		MsgBox(4096, $aUtilityVer, "Thank you for using " & $aUtilName & "." & @CRLF & "Please report any problems or comments to: " & @CRLF & "Discord: http://discord.gg/EU7pzPs or " & @CRLF & _
 				"Forum: http://phoenix125.createaforum.com/index.php. " & @CRLF & @CRLF & "Visit http://www.Phoenix125.com", 20)
-		LogWrite(" " & $aUtilityVer & " Stopped by User")
-		LogWrite(" " & $aUtilityVer & " Stopped")
+		LogWrite(" [Server] Stopped by User")
 		If $aRemoteRestartUse = "yes" Then
 			TCPShutdown()
 		EndIf
@@ -4321,14 +4639,14 @@ Func TrayRestartNow()
 EndFunc   ;==>TrayRestartNow
 
 Func TrayRemoteRestart()
-	LogWrite(" [Remote Restart] Remote Restart requested by user via tray icon (Initiate Remote Restart).")
+	LogWrite(" [RmRrst] Remote Restart requested by user via tray icon (Initiate Remote Restart).")
 	If $aRemoteRestartUse <> "yes" Then
 		$tMB = MsgBox($MB_YESNOCANCEL, $aUtilName, "You must enable Remote Restart in the " & $aUtilName & ".ini." & @CRLF & @CRLF & _
 				"Would you like to enable it? (Port:" & $aRemoteRestartPort & ")" & @CRLF & _
 				"Click (YES) to enable Remote Restart." & @CRLF & _
 				"Click (NO) or (CANCEL) to skip.", 15)
 		If $tMB = 6 Then ; (YES)
-			LogWrite(" [Remote Restart] Remote Restart enabled in " & $aUtilName & ".ini per user request")
+			LogWrite(" [RmRrst] Remote Restart enabled in " & $aUtilName & ".ini per user request")
 			IniWrite($aIniFile, " --------------- REMOTE RESTART OPTIONS --------------- ", "Use Remote Restart? (yes/no) ###", "yes")
 			$aRemoteRestartUse = "yes"
 			MsgBox($MB_OK, $aUtilityVer, "Remote Restart enabled in " & $aUtilName & ".ini. " & @CRLF & "Please restart this utility for Remote Restart to be started.", 5)
@@ -4338,17 +4656,17 @@ Func TrayRemoteRestart()
 			Global $MainSocket = TCPListen($aServerIP, $aRemoteRestartPort, 100)
 			If $MainSocket = -1 Then
 				MsgBox(0x0, "Remote Restart", "Could not bind to [" & $aServerIP & ":" & $aRemoteRestartPort & "] Check server IP or disable Remote Restart in INI", 30)
-				LogWrite(" [Remote Restart] Remote Restart enabled. Could not bind to " & $aServerIP & ":" & $aRemoteRestartPort)
+				LogWrite(" [RmRrst] Remote Restart enabled. Could not bind to " & $aServerIP & ":" & $aRemoteRestartPort)
 ;~ 				_ExitUtil()
 			Else
 				If $sObfuscatePass = "no" Then
-					LogWrite("", " [Remote Restart] Remote Restart enabled. Listening for restart request at http://" & $aServerIP & ":" & $aRemoteRestartPort & "/?" & $aRemoteRestartKey & "=" & $aRemoteRestartCode)
+					LogWrite("", " [RmRrst] Remote Restart enabled. Listening for restart request at http://" & $aServerIP & ":" & $aRemoteRestartPort & "/?" & $aRemoteRestartKey & "=" & $aRemoteRestartCode)
 				Else
-					LogWrite(" [Remote Restart] Remote Restart enabled. Listening for restart request at http://" & $aServerIP & ":" & $aRemoteRestartPort & "/?[key]=[password]")
+					LogWrite(" [RmRrst] Remote Restart enabled. Listening for restart request at http://" & $aServerIP & ":" & $aRemoteRestartPort & "/?[key]=[password]")
 				EndIf
 			EndIf
 		Else
-			LogWrite(" [Remote Restart] No changes made to Remote Restart setting in " & $aUtilName & ".ini per user request.")
+			LogWrite(" [RmRrst] No changes made to Remote Restart setting in " & $aUtilName & ".ini per user request.")
 			$aSplash = _Splash("No changes were made. Resuming utility . . .", 2000)
 		EndIf
 	Else
@@ -4357,7 +4675,7 @@ Func TrayRemoteRestart()
 				"Click (NO) or (CANCEL) to cancel.", 15)
 		If $tMB = 6 Then ; (YES)
 			If $aBeginDelayedShutdown = 0 Then
-				LogWrite(" [Remote Restart] Remote Restart request initiated by user.")
+				LogWrite(" [RmRrst] Remote Restart request initiated by user.")
 				If ($sUseDiscordBotDaily = "yes") Or ($sUseDiscordBotUpdate = "yes") Or ($sUseTwitchBotDaily = "yes") Or ($sUseTwitchBotUpdate = "yes") Or ($sInGameAnnounce = "yes") Then
 					$aRebootReason = "remoterestart"
 					$aBeginDelayedShutdown = 1
@@ -4368,7 +4686,7 @@ Func TrayRemoteRestart()
 				EndIf
 			EndIf
 		Else
-			LogWrite(" [Remote Restart] Remote Restart request canceled by user.")
+			LogWrite(" [RmRrst] Remote Restart request canceled by user.")
 			$aSplash = _Splash("Remote Restart canceled. Resuming utility . . .", 2000)
 		EndIf
 	EndIf
@@ -4429,12 +4747,14 @@ Func _ImportServerConfig()
 	Local $tReturn = False
 	Local $tChangesTF = False
 	Local $tTxt = ""
+	Local $tFound = ""
 	Local $tFileReadArray = FileReadToArray($sConfigPath)
 	For $i = 0 To UBound($tFileReadArray) - 2
 ;~ 		ControlSetText($tSplash, "", "Static1", $aStartText & "Importing settings from " & $aConfigFile & "." & @CRLF & "Analyzing line: " & $i)
 ;~ 		$tFileReadArray[$i] = StringReplace($tFileReadArray[$i], ": ", ":")
 		Local $tSplit = StringSplit($tFileReadArray[$i], ":")
 		If StringInStr($tFileReadArray[$i], "Srv_Port:") Then
+			$tFound &= "Srv_Port,"
 			If StringInStr($tFileReadArray[$i], "# Srv_Port:") Then
 				$tChangesTF = True
 				$tFileReadArray[$i] = StringReplace($tFileReadArray[$i], "# Srv_Port:", "Srv_Port:")
@@ -4450,6 +4770,7 @@ Func _ImportServerConfig()
 			LogWrite(" [Config] . . . Imported Srv_Port:" & $aServerPort)
 		EndIf
 		If StringInStr($tFileReadArray[$i], "Srv_Name:") Then
+			$tFound &= "Srv_Name,"
 			If StringInStr($tFileReadArray[$i], "# Srv_Name:") Then
 				$tChangesTF = True
 				$tFileReadArray[$i] = StringReplace($tFileReadArray[$i], "# Srv_Name:", "Srv_Name:")
@@ -4465,6 +4786,7 @@ Func _ImportServerConfig()
 			LogWrite(" [Config] . . . Imported Srv_Name:" & $aServerName)
 		EndIf
 		If StringInStr($tFileReadArray[$i], "SaveDirectory:") Then
+			$tFound &= "SaveDirectory,"
 			If StringInStr($tFileReadArray[$i], "# SaveDirectory:") Then
 				$aServerSaveGame = $aServerDirLocal & "\Saves"
 			EndIf
@@ -4478,6 +4800,7 @@ Func _ImportServerConfig()
 			LogWrite(" [Config] . . . Imported SaveDirectory:" & $aServerSaveGame)
 		EndIf
 		If StringInStr($tFileReadArray[$i], "Tel_Enabled:") Then
+			$tFound &= "Tel_Enabled,"
 			If StringInStr($tFileReadArray[$i], "# Tel_Enabled:") Then
 				$tChangesTF = True
 				$tFileReadArray[$i] = "    Tel_Enabled: true   "
@@ -4485,6 +4808,7 @@ Func _ImportServerConfig()
 			EndIf
 		EndIf
 		If StringInStr($tFileReadArray[$i], "Tel_Port:") Then
+			$tFound &= "Tel_Port,"
 			If StringInStr($tFileReadArray[$i], "# Tel_Port:") Then
 				$tChangesTF = True
 				$tFileReadArray[$i] = StringReplace($tFileReadArray[$i], "# Tel_Port:", "Tel_Port:")
@@ -4500,6 +4824,7 @@ Func _ImportServerConfig()
 			LogWrite(" [Config] . . . Imported Tel_Port:" & $aTelnetPort)
 		EndIf
 		If StringInStr($tFileReadArray[$i], "Tel_Pwd:") Then
+			$tFound &= "Tel_Pwd,"
 			If StringInStr($tFileReadArray[$i], "# Tel_Pwd:") Then
 				$tChangesTF = True
 				$tFileReadArray[$i] = StringReplace($tFileReadArray[$i], "# Tel_Pwd:", "Tel_Pwd:")
@@ -4512,12 +4837,36 @@ Func _ImportServerConfig()
 				$aTelnetPass = "ESUUabc123"
 				$tTxt &= "Error importing Telnet Port from " & $aConfigFile & @CRLF
 			EndIf
-			LogWrite(" [Config] . . . Imported Tel_Pwd:" & $aTelnetPass)
+			If $sObfuscatePass = "no" Then
+				LogWrite(" [Config] . . . Imported Tel_Pwd:" & $aTelnetPass)
+			Else
+				LogWrite(" [Config] . . . Imported Tel_Pwd:{hidden}")
+			EndIf
 		EndIf
 	Next
+	If StringInStr($tFound, "Tel_Pwd") = 0 Then
+		$aTelnetPass = "ESUUabc123"
+		_ArrayAdd($tFileReadArray, "Tel_Pwd:" & $aTelnetPass)
+		If $sObfuscatePass = "no" Then
+			LogWrite(" [Config] No Tel_Pwd found in config. New line added: Tel_Pwd:" & $aTelnetPass)
+		Else
+			LogWrite(" [Config] No Tel_Pwd found in config. New line added: Tel_Pwd:{hidden}")
+		EndIf
+		$tChangesTF = True
+	EndIf
+	If StringInStr($tFound, "Tel_Port") = 0 Then
+		$aTelnetPass = "ESUUabc123"
+		_ArrayAdd($tFileReadArray, "Tel_Port:" & $aTelnetPass)
+		If $sObfuscatePass = "no" Then
+			LogWrite(" [Config] No Tel_Pwd found in config. New line added: Tel_Pwd:" & $aTelnetPass)
+		Else
+			LogWrite(" [Config] No Tel_Pwd found in config. New line added: Tel_Pwd:{hidden}")
+		EndIf
+		$tChangesTF = True
+	EndIf
+	;Or StringInStr($tFound, "Tel_Port") = 0 Or StringInStr($tFound, "Tel_Enabled") = 0 Then
 	If $tChangesTF Then
-		Local $sDrive = "", $sDir = "", $sFileName = "", $sExtension = ""
-		Local $xFileName = _PathSplit($sConfigPath, $sDrive, $sDir, $sFileName, $sExtension)
+		Local $xFileName = _PathSplitEx($sConfigPath)
 		Local $tFileName = $xFileName[3] & $xFileName[4]
 		Local $tFolder = $xFileName[1] & $xFileName[2]
 		Local $tTime = @YEAR & "-" & @MON & "-" & @MDAY & "_" & @HOUR & "-" & @MIN
@@ -4704,11 +5053,9 @@ Func GetPlayerCount($tSplash)
 				$aPlayersOnlineName &= $xPlayersList[$i] & Chr(238)
 			Next
 			$aPlayersOnlineName = StringTrimRight($aPlayersOnlineName, 1)
-;~ 			MsgBox(0,"Kim","Online:[" & $aPlayersOnlineName & "]") ;kim125er!
-;~ 			$aPlayersOnlineSteamID = _ArrayToString($tSteamIDArray)
 		EndIf
 		If $aRCONError Then
-			LogWrite(" [Online Players] Error receiving online players.")
+			LogWrite(" [Player] Error receiving online players.")
 			$aErr = True
 			$aRCONError = False
 		EndIf
@@ -4724,7 +5071,7 @@ Func GetPlayerCount($tSplash)
 			$aPlayersLeft = _ArrayToString($tTempArray[0], StringReplace($aPlayerSeparator, ";", " "))
 			$aPlayersName = _ArrayToString($tPlayersAfterArray, StringReplace($aPlayerSeparator, ";", " "))
 			$tOnlinePlayers[0] = True
-			LogWrite(" [Online Players] " & _PlayersChangedText() & $tOnlinePlayers[2])
+			LogWrite(" [Player] " & _PlayersChangedText() & $tOnlinePlayers[2])
 			WriteOnlineLog(_PlayersChangedText() & $tOnlinePlayers[2])
 			If $tSplash Then
 				MsgBox($MB_OK, $aUtilityVer, "ONLINE PLAYERS CHANGED!" & @CRLF & @CRLF & "Online players: " & @CRLF & $tOnlinePlayers[1], 10)
@@ -4892,7 +5239,7 @@ Func _GetQuery($tIP, $tPort)
 		Local $tFileExist = _DownloadAndExtractFile($tFileBase, "http://www.phoenix125.com/share/steamserverquery/" & $tFileDL, _
 				"https://github.com/phoenix125/SteamServerQuery/releases/download/Latest_Version/SteamServerQuery.zip", 0, $aFolderTemp)
 		If $tFileExist = False Then
-			LogWrite(" [Query] ERROR!! Failed to download and extract " & $tFileBase & ". Query watchdog disabled until tool restarted.")
+			LogWrite(" [Query ] ERROR!! Failed to download and extract " & $tFileBase & ". Query watchdog disabled until tool restarted.")
 			$aQueryYN = "no"
 		EndIf
 	EndIf
@@ -4909,7 +5256,7 @@ Func _GetQuery($tIP, $tPort)
 	StdioClose($mOut)
 	If ProcessExists($mOut) Then ProcessClose($mOut)
 	Local $tReturn = StringSplit($tcrcatch, @CRLF, 3)
-	If StringLen($tcrcatch) < 10 Then LogWrite("", " [Query] Failed:" & $tQuerycmd & " | " & StringReplace($tcrcatch, @CRLF, "|"))
+	If StringLen($tcrcatch) < 10 Then LogWrite("", " [Query ] Failed:" & $tQuerycmd & " | " & StringReplace($tcrcatch, @CRLF, "|"))
 	Return $tReturn
 EndFunc   ;==>_GetQuery
 Func _Splash($tTxt, $tTime = 0, $tWidth = 400, $tHeight = 125)
@@ -4938,11 +5285,11 @@ Func _DownloadAndExtractFile($tFileName, $tURL1, $tURL2 = "", $tSplash = 0, $tFo
 		InetGet($tURL1, $tFolder & "\" & $tFileName & ".zip", 1)
 		If Not FileExists($tFolder & "\" & $tFileName & ".zip") Then
 			SetError(1, 1) ; Failed to download from source 1
-			LogWrite(" [Util] Error downloading " & $tFileName & " from Source1: " & $tURL1)
+			LogWrite(" [ Util ] Error downloading " & $tFileName & " from Source1: " & $tURL1)
 			InetGet($tURL2, $tFolder & "\" & $tFileName & ".zip", 1)
 			If Not FileExists($tFolder & "\" & $tFileName & ".zip") Then
 				SetError(1, 2) ; Failed to download from source 2
-				LogWrite(" [Util] Error downloading " & $tFileName & " from Source2: " & $tURL2)
+				LogWrite(" [ Util ] Error downloading " & $tFileName & " from Source2: " & $tURL2)
 				_SplashOff()
 				MsgBox($MB_OK, $aUtilName, "ERROR!!!  " & $tFileName & ".zip download failed.", 30)
 				$aSplash = _Splash("")
@@ -4956,9 +5303,9 @@ Func _DownloadAndExtractFile($tFileName, $tURL1, $tURL2 = "", $tSplash = 0, $tFo
 		If $tFile4 <> 0 Then _ExtractZip($tFolder & "\" & $tFileName & ".zip", "", $tFile4, $tFolder)
 		If $tFile5 <> 0 Then _ExtractZip($tFolder & "\" & $tFileName & ".zip", "", $tFile5, $tFolder)
 		If FileExists($tFolder & "\" & $tFileName & ".exe") Then
-			LogWrite(" [Util] Downloaded and installed " & $tFileName & ".")
+			LogWrite(" [ Util ] Downloaded and installed " & $tFileName & ".")
 		Else
-			LogWrite(" [Util] Error extracting " & $tFileName & ".exe from " & $tFileName & ".zip")
+			LogWrite(" [ Util ] Error extracting " & $tFileName & ".exe from " & $tFileName & ".zip")
 			SetError(1, 3) ; Failed to extract file
 			_SplashOff()
 			MsgBox($MB_OK, $aUtilName, "ERROR!!! Extracting " & $tFileName & ".exe from " & $tFileName & ".zip failed.", 30)
@@ -5012,7 +5359,7 @@ Func PurgeLogFile()
 	FileWriteLine($aPurgeLogFileName, "for /f ""tokens=* skip=" & $aLogQuantity & """ %%F in " & Chr(40) & "'dir """ & $aFolderLog & $aUtilName & "_Log_*.txt"" /o-d /tc /b'" & Chr(41) & " do del """ & $aFolderLog & "%%F""")
 	FileWriteLine($aPurgeLogFileName, "for /f ""tokens=* skip=" & $aLogQuantity & """ %%F in " & Chr(40) & "'dir """ & $aFolderLog & $aUtilName & "_LogFull_*.txt"" /o-d /tc /b'" & Chr(41) & " do del """ & $aFolderLog & "%%F""")
 	FileWriteLine($aPurgeLogFileName, "for /f ""tokens=* skip=" & $aLogQuantity & """ %%F in " & Chr(40) & "'dir """ & $aFolderLog & $aUtilName & "_OnlineUserLog_*.txt"" /o-d /tc /b'" & Chr(41) & " do del """ & $aFolderLog & "%%F""")
-	LogWrite("", " Deleting log files >" & $aLogQuantity & " in folder " & $aFolderTemp)
+	LogWrite("", " [ Log  ] Deleting log files >" & $aLogQuantity & " in folder " & $aFolderTemp)
 	Run($aPurgeLogFileName, "", @SW_HIDE)
 EndFunc   ;==>PurgeLogFile
 Func _ProcessGetLocation($iPID)
@@ -5074,12 +5421,17 @@ Func _PlinkConnect($tIP, $tPort, $tPwd, $tLog012 = 2, $tSkipVerifyTF = False) ; 
 ;~ 		If $tSkipVerifyTF = False Then
 		For $i = 1 To 6
 			If $i = 6 Then
-				LogWrite(" [Telnet] ERROR! Plink failed to connect to server [" & $tIP & ":" & $tPort & "] PID:" & $aPlinkPID, " [Telnet] ERROR! Plink failed to connect to server [" & $tIP & ":" & $tPort & "]  PID[" & $aPlinkPID & "]" & $tCmd)
+				Local $x1Return = _GetEAHDefaultConfigFile()
+				If $x1Return[0] <> $aConfigFile Then
+					LogWrite(" [Telnet] ERROR! Plink failed to connect to server [" & $tIP & ":" & $tPort & "] PID:" & $aPlinkPID, " [Telnet] ERROR! Plink failed to connect to server [" & $tIP & ":" & $tPort & "]  PID[" & $aPlinkPID & "]" & $tCmd)
+					LogWrite("          NOTE!!! EAH is set to use config file [" & $x1Return[0] & "].  ESUU is set to use config file [" & $aConfigFile & "] PLEASE UPDATE ESUU's CONFIG TO USE DESIRED YAML CONFIG.")
+				Else
+					LogWrite(" [Telnet] ERROR! Plink failed to connect to server [" & $tIP & ":" & $tPort & "] PID:" & $aPlinkPID, " [Telnet] ERROR! Plink failed to connect to server [" & $tIP & ":" & $tPort & "]  PID[" & $aPlinkPID & "]" & $tCmd)
+				EndIf
+
 				Return SetError(2, 0, 0)
 			EndIf
 			StdinWrite($aPlinkPID, $tPwd & @CRLF) ;$kReturn = _PlinkSend(@CRLF & $tPwd, True, True)
-
-
 			Local $sDataA
 			Local $sDataB
 			Do
@@ -5103,20 +5455,37 @@ Func _PlinkConnect($tIP, $tPort, $tPwd, $tLog012 = 2, $tSkipVerifyTF = False) ; 
 				Local $tReturn = StringRegExpReplace($sDataA, "\00", "")
 			EndIf
 			$kReturn = $tReturn
-
-
 			If StringInStr($kReturn, "Logged in successfully") > 0 Then
-				LogWrite(" [Telnet] Plink logged in successfully", " [Telnet] Plink logged in successfully:" & $kReturn)
+				LogWrite(" [Telnet] Plink logged in successfully", " [Telnet] Plink logged in successfully [" & ReplaceCRLF($kReturn) & "]")
 				ExitLoop
 			EndIf
 			Sleep(500)
 		Next
-;~ 		EndIf
 		LogWrite(" [Telnet] Plink Started. PID(" & $aPlinkPID & ") Connected to server [" & $tIP & ":" & $tPort & "]", _
 				" [Telnet] Plink Started. PID(" & $aPlinkPID & ") Connected to server [" & $tIP & ":" & $tPort & "] " & $tCmd & " [" & ReplaceCRLF($kReturn) & "]")
 	EndIf
 	Return $sReturn
 EndFunc   ;==>_PlinkConnect
+Func _GetEAHDefaultConfigFile()
+	Local $tEAH_YAML = $aServerDirLocal & "\DedicatedServer\EmpyrionAdminHelper\Config\Settings.XML"
+	Local $sReturn[3]
+	If FileExists($tEAH_YAML) Then
+		Local $tRead = FileRead($tEAH_YAML)
+		Local $tParam = "Dedicated"
+		Local $tArray = _StringBetween($tRead, "<" & $tParam & ">", "</" & $tParam & ">")
+		$sReturn[0] = $tArray[0]
+		Local $tParam = "Server_IP"
+		Local $tArray = _StringBetween($tRead, "<" & $tParam & ">", "</" & $tParam & ">")
+		$sReturn[1] = $tArray[0]
+		Local $tParam = "Telnet_Port"
+		Local $tArray = _StringBetween($tRead, "<" & $tParam & ">", "</" & $tParam & ">")
+		$sReturn[2] = $tArray[0]
+		Return $sReturn
+	Else
+		Local $sReturn[3] = [0, 0, 0]
+		Return $sReturn
+	EndIf
+EndFunc   ;==>_GetEAHDefaultConfigFile
 Func _PlinkRead($aSkipConnectTF = False) ; Author:spudw2k, Modified:Adam Lawrence (AdamUL), http://www.autoitscript.com/forum/topic/130536-interacting-with-a-remote-computer-via-ssh/page__p__910252#entry910252
 	If $aSkipConnectTF = False Then _PlinkConnect($aTelnetIP, $aTelnetPort, $aTelnetPass, 0, True)
 	If ProcessExists($aPlinkPID) < 1 Then _PlinkConnect($aTelnetIP, $aTelnetPort, $aTelnetPass, 1, True)
@@ -7708,7 +8077,7 @@ Func W1_T2_C_UseTelnetClick()
 EndFunc   ;==>W1_T2_C_UseTelnetClick
 Func W1_T2_E_PauseForMapGenerationChange()
 	$aWatchdogWaitServerUpdate = GUICtrlRead($W1_T2_E_PauseForMapGeneration)
-	IniWrite($aIniFile, " --------------- KEEP ALIVE WATCHDOG ---------------", "Pause watchdog for _ minutes after server updated to allow map generation (1-360) ###", $aWatchdogWaitServerUpdate)
+	IniWrite($aIniFile, " --------------- KEEP ALIVE WATCHDOG ---------------", "Pause watchdog for _ minutes after server updated to allow for update processes to complete (1-360) ###", $aWatchdogWaitServerUpdate)
 EndFunc   ;==>W1_T2_E_PauseForMapGenerationChange
 Func W1_T2_I_FailedResponsesChange()
 	$aWatchdogAttemptsBeforeRestart = GUICtrlRead($W1_T2_I_FailedResponses)
@@ -7983,12 +8352,17 @@ Func W1_T4_C_AnnounceInGameClick()
 	IniWrite($aIniFile, " --------------- IN-GAME ANNOUNCEMENT CONFIGURATION --------------- ", "Announce messages in-game? (Requires telnet) (yes/no) ###", $sInGameAnnounce)
 EndFunc   ;==>W1_T4_C_AnnounceInGameClick
 Func _AnnounceDailyCB($tCID, $tTxt)
-	If GUICtrlRead($tCID) = $GUI_CHECKED Then
-		$sAnnounceNotifyTime1 = IniRead($aIniFile, " --------------- ANNOUNCEMENT CONFIGURATION --------------- ", "Announcement _ minutes before DAILY reboot (comma separated 0-60) ###", "1,3,5,10")
-		$sAnnounceNotifyTime1 = _SortString($sAnnounceNotifyTime1 & "," & $tTxt)
-	Else
-		$sAnnounceNotifyTime1 = _RemoveFromStringCommaSeparated($sAnnounceNotifyTime1, $tTxt, "0SND")
-	EndIf
+	Local $tChecked = ""
+	If GUICtrlRead($W1_T4_C_Daily01) = $GUI_CHECKED Then $tChecked = "1"
+	If GUICtrlRead($W1_T4_C_Daily02) = $GUI_CHECKED Then $tChecked &= ",2"
+	If GUICtrlRead($W1_T4_C_Daily03) = $GUI_CHECKED Then $tChecked &= ",3"
+	If GUICtrlRead($W1_T4_C_Daily05) = $GUI_CHECKED Then $tChecked &= ",5"
+	If GUICtrlRead($W1_T4_C_Daily10) = $GUI_CHECKED Then $tChecked &= ",10"
+	If GUICtrlRead($W1_T4_C_Daily15) = $GUI_CHECKED Then $tChecked &= ",15"
+	If StringLeft($tChecked, 1) = "," Then $tChecked = StringTrimLeft($tChecked, 1)
+	If $tChecked = "" Then $tChecked = "1"
+	$sAnnounceNotifyTime1 = $tChecked
+	_UpdateAnnouncements()
 	GUICtrlSetData($W1_T4_I_DailyMins, $sAnnounceNotifyTime1)
 	IniWrite($aIniFile, " --------------- ANNOUNCEMENT CONFIGURATION --------------- ", "Announcement _ minutes before DAILY reboot (comma separated 0-60) ###", $sAnnounceNotifyTime1)
 EndFunc   ;==>_AnnounceDailyCB
@@ -8019,12 +8393,17 @@ Func W1_T4_C_LogOnlinePlayersClick()
 	IniWrite($aIniFile, " --------------- GAME SERVER CONFIGURATION --------------- ", "Check for, and log, online players? (yes/no) ###", $aServerOnlinePlayerYN)
 EndFunc   ;==>W1_T4_C_LogOnlinePlayersClick
 Func _AnnounceRemoteCB($tCID, $tTxt)
-	If GUICtrlRead($tCID) = $GUI_CHECKED Then
-		$sAnnounceNotifyTime3 = IniRead($aIniFile, " --------------- ANNOUNCEMENT CONFIGURATION --------------- ", "Announcement _ minutes before REMOTE RESTART reboot (comma separated 0-60) ###", "1,3,5,10")
-		$sAnnounceNotifyTime3 = _SortString($sAnnounceNotifyTime3 & "," & $tTxt)
-	Else
-		$sAnnounceNotifyTime3 = _RemoveFromStringCommaSeparated($sAnnounceNotifyTime3, $tTxt, "0SND")
-	EndIf
+	Local $tChecked = ""
+	If GUICtrlRead($W1_T4_C_Remote01) = $GUI_CHECKED Then $tChecked = "1"
+	If GUICtrlRead($W1_T4_C_Remote02) = $GUI_CHECKED Then $tChecked &= ",2"
+	If GUICtrlRead($W1_T4_C_Remote03) = $GUI_CHECKED Then $tChecked &= ",3"
+	If GUICtrlRead($W1_T4_C_Remote05) = $GUI_CHECKED Then $tChecked &= ",5"
+	If GUICtrlRead($W1_T4_C_Remote10) = $GUI_CHECKED Then $tChecked &= ",10"
+	If GUICtrlRead($W1_T4_C_Remote15) = $GUI_CHECKED Then $tChecked &= ",15"
+	If StringLeft($tChecked, 1) = "," Then $tChecked = StringTrimLeft($tChecked, 1)
+	If $tChecked = "" Then $tChecked = "1"
+	$sAnnounceNotifyTime3 = $tChecked
+	_UpdateAnnouncements()
 	GUICtrlSetData($W1_T4_I_UpdateRemote, $sAnnounceNotifyTime3)
 	IniWrite($aIniFile, " --------------- ANNOUNCEMENT CONFIGURATION --------------- ", "Announcement _ minutes before REMOTE RESTART reboot (comma separated 0-60) ###", $sAnnounceNotifyTime3)
 EndFunc   ;==>_AnnounceRemoteCB
@@ -8047,12 +8426,17 @@ Func W1_T4_C_Remote15Click()
 	_AnnounceRemoteCB($W1_T4_C_Remote15, "15")
 EndFunc   ;==>W1_T4_C_Remote15Click
 Func _AnnounceUpdateCB($tCID, $tTxt)
-	If GUICtrlRead($tCID) = $GUI_CHECKED Then
-		$sAnnounceNotifyTime2 = IniRead($aIniFile, " --------------- ANNOUNCEMENT CONFIGURATION --------------- ", "Announcement _ minutes before UPDATES reboot (comma separated 0-60) ###", "1,3,5,10")
-		$sAnnounceNotifyTime2 = _SortString($sAnnounceNotifyTime2 & "," & $tTxt)
-	Else
-		$sAnnounceNotifyTime2 = _RemoveFromStringCommaSeparated($sAnnounceNotifyTime2, $tTxt, "0SND")
-	EndIf
+	Local $tChecked = ""
+	If GUICtrlRead($W1_T4_C_Update01) = $GUI_CHECKED Then $tChecked = "1"
+	If GUICtrlRead($W1_T4_C_Update02) = $GUI_CHECKED Then $tChecked &= ",2"
+	If GUICtrlRead($W1_T4_C_Update03) = $GUI_CHECKED Then $tChecked &= ",3"
+	If GUICtrlRead($W1_T4_C_Update05) = $GUI_CHECKED Then $tChecked &= ",5"
+	If GUICtrlRead($W1_T4_C_Update10) = $GUI_CHECKED Then $tChecked &= ",10"
+	If GUICtrlRead($W1_T4_C_Update15) = $GUI_CHECKED Then $tChecked &= ",15"
+	If StringLeft($tChecked, 1) = "," Then $tChecked = StringTrimLeft($tChecked, 1)
+	If $tChecked = "" Then $tChecked = "1"
+	$sAnnounceNotifyTime2 = $tChecked
+	_UpdateAnnouncements()
 	GUICtrlSetData($W1_T4_I_UpdateMins, $sAnnounceNotifyTime2)
 	IniWrite($aIniFile, " --------------- ANNOUNCEMENT CONFIGURATION --------------- ", "Announcement _ minutes before UPDATES reboot (comma separated 0-60) ###", $sAnnounceNotifyTime2)
 EndFunc   ;==>_AnnounceUpdateCB
@@ -8073,7 +8457,8 @@ Func _RemoveFromStringCommaSeparated($tString, $tRemove, $tOpt = "SND") ; $tOpt 
 	If StringInStr($tOpt, "S") Then $tString = _SortString($tString, $tOpt)
 	Return $tString
 EndFunc   ;==>_RemoveFromStringCommaSeparated
-Func _SortString($tString, $tOpt = "ND") ; $tOpt N=IsNumber, D=Remove Duplicates
+Func _SortString($tString1, $tOpt = "ND") ; $tOpt N=IsNumber, D=Remove Duplicates
+	Local $tString = $tString1
 	Local $tArray4 = StringSplit($tString, ",", 2)
 	If StringInStr($tOpt, "N") Then
 		For $t2 = 0 To (UBound($tArray4) - 1)
@@ -8084,6 +8469,7 @@ Func _SortString($tString, $tOpt = "ND") ; $tOpt N=IsNumber, D=Remove Duplicates
 	If StringInStr($tOpt, "D") Then $tArray4 = _ArrayUnique($tArray4, 0, 0, 0, 0)
 	$tString = _ArrayToString($tArray4, ",")
 	If StringLeft($tString, 2) = "0," Then $tString = StringTrimLeft($tString, 2)
+	If $tString <> $tString1 Then SetError(1)
 	Return $tString
 EndFunc   ;==>_SortString
 Func W1_T4_C_TelnetStayConnectedClick()
@@ -8148,6 +8534,7 @@ Func W1_T4_I_BackupStartedChange()
 EndFunc   ;==>W1_T4_I_BackupStartedChange
 Func W1_T4_I_DailyMinsChange()
 	$sAnnounceNotifyTime1 = GUICtrlRead($W1_T4_I_DailyMins)
+	_UpdateAnnouncements()
 	IniWrite($aIniFile, " --------------- ANNOUNCEMENT CONFIGURATION --------------- ", "Announcement _ minutes before DAILY reboot (comma separated 0-60) ###", $sAnnounceNotifyTime1)
 EndFunc   ;==>W1_T4_I_DailyMinsChange
 Func W1_T4_I_LogOnlinePlaySecondsChange()
@@ -8156,10 +8543,12 @@ Func W1_T4_I_LogOnlinePlaySecondsChange()
 EndFunc   ;==>W1_T4_I_LogOnlinePlaySecondsChange
 Func W1_T4_I_UpdateMinsChange()
 	$sAnnounceNotifyTime2 = GUICtrlRead($W1_T4_I_UpdateMins)
+	_UpdateAnnouncements()
 	IniWrite($aIniFile, " --------------- ANNOUNCEMENT CONFIGURATION --------------- ", "Announcement _ minutes before UPDATES reboot (comma separated 0-60) ###", $sAnnounceNotifyTime2)
 EndFunc   ;==>W1_T4_I_UpdateMinsChange
 Func W1_T4_I_UpdateRemoteChange()
 	$sAnnounceNotifyTime3 = GUICtrlRead($W1_T4_I_UpdateRemote)
+	_UpdateAnnouncements()
 	IniWrite($aIniFile, " --------------- ANNOUNCEMENT CONFIGURATION --------------- ", "Announcement _ minutes before REMOTE RESTART reboot (comma separated 0-60) ###", $sAnnounceNotifyTime3)
 EndFunc   ;==>W1_T4_I_UpdateRemoteChange
 Func W1_T5_C_D1TTSClick()
@@ -8521,8 +8910,7 @@ Func W1_T7_I_TwitchUpdateChange()
 EndFunc   ;==>W1_T7_I_TwitchUpdateChange
 Func W1_T8_B_ExecuteAFirstRestartAnnouncementClick()
 	Local $tCtrlID = $W1_T8_I_ExecuteAFirstRestartAnnouncement
-	Local $sDrive = "", $sDir = "", $sFileName = "", $sExtension = ""
-	Local $xFileName = _PathSplit($aExternalScriptAnnounceFile, $sDrive, $sDir, $sFileName, $sExtension)
+	Local $xFileName = _PathSplitEx($aExternalScriptAnnounceFile)
 	Local $tFileName = $xFileName[3] & $xFileName[4]
 	Local $tFolder = $xFileName[1] & $xFileName[2]
 	If $tFolder = "" Then $tFolder = @ScriptDir
@@ -8542,8 +8930,7 @@ Func W1_T8_B_ExecuteAFirstRestartAnnouncementClick()
 EndFunc   ;==>W1_T8_B_ExecuteAFirstRestartAnnouncementClick
 Func W1_T8_B_ExecuteAfterRestartClick()
 	Local $tCtrlID = $W1_T8_I_ExecuteAfterRestart
-	Local $sDrive = "", $sDir = "", $sFileName = "", $sExtension = ""
-	Local $xFileName = _PathSplit($aExternalScriptDailyFile, $sDrive, $sDir, $sFileName, $sExtension)
+	Local $xFileName = _PathSplitEx($aExternalScriptDailyFile)
 	Local $tFileName = $xFileName[3] & $xFileName[4]
 	Local $tFolder = $xFileName[1] & $xFileName[2]
 	If $tFolder = "" Then $tFolder = @ScriptDir
@@ -8563,8 +8950,7 @@ Func W1_T8_B_ExecuteAfterRestartClick()
 EndFunc   ;==>W1_T8_B_ExecuteAfterRestartClick
 Func W1_T8_B_ExecuteBeforeSteamandStart()
 	Local $tCtrlID = $W1_T8_I_ExecuteBeforeSteamandStart
-	Local $sDrive = "", $sDir = "", $sFileName = "", $sExtension = ""
-	Local $xFileName = _PathSplit($aExternalScriptFile, $sDrive, $sDir, $sFileName, $sExtension)
+	Local $xFileName = _PathSplitEx($aExternalScriptFile)
 	Local $tFileName = $xFileName[3] & $xFileName[4]
 	Local $tFolder = $xFileName[1] & $xFileName[2]
 	If $tFolder = "" Then $tFolder = @ScriptDir
@@ -8584,8 +8970,7 @@ Func W1_T8_B_ExecuteBeforeSteamandStart()
 EndFunc   ;==>W1_T8_B_ExecuteBeforeSteamandStart
 Func W1_T8_B_ExecuteAfterSteamBeforeStartClick()
 	Local $tCtrlID = $W1_T8_I_ExecuteAfterSteamBeforeStart
-	Local $sDrive = "", $sDir = "", $sFileName = "", $sExtension = ""
-	Local $xFileName = _PathSplit($aExternalScriptValidateFile, $sDrive, $sDir, $sFileName, $sExtension)
+	Local $xFileName = _PathSplitEx($aExternalScriptValidateFile)
 	Local $tFileName = $xFileName[3] & $xFileName[4]
 	Local $tFolder = $xFileName[1] & $xFileName[2]
 	If $tFolder = "" Then $tFolder = @ScriptDir
@@ -8605,8 +8990,7 @@ Func W1_T8_B_ExecuteAfterSteamBeforeStartClick()
 EndFunc   ;==>W1_T8_B_ExecuteAfterSteamBeforeStartClick
 Func W1_T8_B_ExecuteAfterUpdateClick()
 	Local $tCtrlID = $W1_T8_I_ExecuteAfterUpdate
-	Local $sDrive = "", $sDir = "", $sFileName = "", $sExtension = ""
-	Local $xFileName = _PathSplit($aExternalScriptUpdateFile, $sDrive, $sDir, $sFileName, $sExtension)
+	Local $xFileName = _PathSplitEx($aExternalScriptUpdateFile)
 	Local $tFileName = $xFileName[3] & $xFileName[4]
 	Local $tFolder = $xFileName[1] & $xFileName[2]
 	If $tFolder = "" Then $tFolder = @ScriptDir
@@ -8626,8 +9010,7 @@ Func W1_T8_B_ExecuteAfterUpdateClick()
 EndFunc   ;==>W1_T8_B_ExecuteAfterUpdateClick
 Func W1_T8_B_ExecuteRemoteRestartClick()
 	Local $tCtrlID = $W1_T8_I_ExecuteRemoteRestart
-	Local $sDrive = "", $sDir = "", $sFileName = "", $sExtension = ""
-	Local $xFileName = _PathSplit($aExternalScriptRemoteFile, $sDrive, $sDir, $sFileName, $sExtension)
+	Local $xFileName = _PathSplitEx($aExternalScriptRemoteFile)
 	Local $tFileName = $xFileName[3] & $xFileName[4]
 	Local $tFolder = $xFileName[1] & $xFileName[2]
 	If $tFolder = "" Then $tFolder = @ScriptDir
@@ -9052,6 +9435,104 @@ Func AddZero($tString)
 	If Number($tArray[1]) > 0 Then $tString = "0," & $tString
 	Return $tString
 EndFunc   ;==>AddZero
+Func _CheckIfProcessRunning($s1PID, $s1Path = "") ; $sPId can by PID or process name.  If process name and no $sPath given, returns PID of first process .  If process name and $sPath given, return PID of process running that has same name and folder
+	If StringRight($s1Path, 1) <> "\" Then $s1Path &= "\"
+	If IsString($s1PID) Then
+		Local $s1PList = ProcessList($s1PID)
+		If $s1PList[0][0] > 0 Then
+			If $s1Path <> "\" Then
+				If $s1PList[0][0] > 0 Then
+					For $s1x = 1 To $s1PList[0][0]
+						If _ProcessGetPathFromPID($s1PList[$s1x][1], 2) = $s1Path Then Return $s1PList[$s1x][1]
+					Next
+				EndIf
+			Else
+				Return $s1PList[1][1]
+			EndIf
+		EndIf
+	Else
+		If ProcessExists($s1PID) Then
+			If $s1Path <> "\" Then
+				If _ProcessGetPathFromPID($s1PID, 2) = $s1Path Then Return $s1PID
+			Else
+				Return $s1PID
+			EndIf
+		EndIf
+	EndIf
+	Return 0
+EndFunc   ;==>_CheckIfProcessRunning
+Func _ProcessGetPathFromPID($vProcessID, $bFullPath = 1) ; $bFullPath 0 = filename/process name only, $bFullPath 1 = full path and filename/process name, 2 = path only (no filename / process name)
+	If Not IsNumber($vProcessID) Then
+		$vProcessID = ProcessExists($vProcessID)
+		If $vProcessID == 0 Then Return SetError(1, 0, "")
+	EndIf
+	Local $hProcess, $stFilename, $aRet, $sFilename, $sDLLFunctionName
+	If $bFullPath > 0 Then
+		$sDLLFunctionName = "GetModuleFileNameEx"
+	Else
+		$sDLLFunctionName = "GetModuleBaseName"
+	EndIf
+	Local $hProcess = DllCall('kernel32.dll', 'ptr', 'OpenProcess', 'int', BitOR(0x400, 0x10), 'int', 0, 'int', $vProcessID)
+	If @error Or Not IsArray($hProcess) Then Return SetError(2, 0, "")
+	$stFilename = DllStructCreate("wchar[32767]")
+	$aRet = DllCall("Psapi.dll", "dword", $sDLLFunctionName & 'W', _
+			"ptr", $hProcess[0], "ptr", Chr(0), "ptr", DllStructGetPtr($stFilename), "dword", 32767)
+	If @error Or Not IsArray($aRet) Then
+		DllCall('kernel32.dll', 'ptr', 'CloseHandle', 'ptr', $hProcess[0])
+		$stFilename = 0
+		$hProcess = 0
+		Return SetError(2, 0, "")
+	EndIf
+	$sFilename = DllStructGetData($stFilename, 1)
+	DllCall('kernel32.dll', 'ptr', 'CloseHandle', 'ptr', $hProcess[0])
+	$stFilename = 0
+	$hProcess = 0
+	If $bFullPath = 2 Then
+		$stPath = _PathSplitEx($sFilename)
+		$sFilename = $stPath[1] & $stPath[2]
+	EndIf
+	Return SetError(0, 0, $sFilename)
+EndFunc   ;==>_ProcessGetPathFromPID
+Func _ProcessGetPIDFromName($sProcess)
+	If IsString($sProcess) = 0 Then
+		SetError(2)
+		Return 0
+	ElseIf ProcessExists($sProcess) = 0 Then
+		SetError(1)
+		Return 0
+	Else
+		Local $sPList = ProcessList($sProcess)
+		Local $si
+		Local $sPId[$sPList[0][0] + 1]
+		$sPId[0] = $sPList[0][0]
+		For $si = 1 To $sPList[0][0]
+			$sPId[$si] = $sPList[$si][1]
+		Next
+		If UBound($sPId) > 1 Then
+			Return $sPId[1]
+		Else
+			Return 0
+		EndIf
+	EndIf
+EndFunc   ;==>_ProcessGetPIDFromName
+Func _PathSplitEx($sFilePath, $sDrive = "", $sDir = "", $sFilename = "", $sExtension = "")
+	If IsArray($sFilePath) Then $sFilePath = StringReplace(_ArrayToString($sFilePath), "|", "")
+	Local $aArray = StringRegExp($sFilePath, "^\h*((?:\\\\\?\\)*(\\\\[^\?\/\\]+|[A-Za-z]:)?(.*[\/\\]\h*)?((?:[^\.\/\\]|(?(?=\.[^\/\\]*\.)\.))*)?([^\/\\]*))$", $STR_REGEXPARRAYMATCH)
+	If @error Then ; This error should never happen.
+		ReDim $aArray[5]
+		$aArray[$PATH_ORIGINAL] = $sFilePath
+	EndIf
+	$sDrive = $aArray[$PATH_DRIVE]
+	If StringLeft($aArray[$PATH_DIRECTORY], 1) == "/" Then
+		$sDir = StringRegExpReplace($aArray[$PATH_DIRECTORY], "\h*[\/\\]+\h*", "\/")
+	Else
+		$sDir = StringRegExpReplace($aArray[$PATH_DIRECTORY], "\h*[\/\\]+\h*", "\\")
+	EndIf
+	$aArray[$PATH_DIRECTORY] = $sDir
+	$sFilename = $aArray[$PATH_FILENAME]
+	$sExtension = $aArray[$PATH_EXTENSION]
+	Return $aArray
+EndFunc   ;==>_PathSplitEx
 
 Func _ErrorCode($tError)
 	If IsDeclared("xErrorCodes") = 0 Then

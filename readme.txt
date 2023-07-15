@@ -1,5 +1,5 @@
 EmpyrionServerUpdateUtility - A Utility to Keep Your Empyrion Dedicated Server updated (and schedule server restarts, download and install new server files, and more!)
-- Latest version: EmpyrionServerUpdateUtility_v1.0.5 (2020-12-12) (Beta and Stable are the same version)
+- Latest version: EmpyrionServerUpdateUtility_v1.0.7 (2021-07-14) (Beta and Stable are the same version)
 - By Phoenix125 | http://www.Phoenix125.com | http://discord.gg/EU7pzPs | kim@kim125.com
 - Based on Dateranoth's ConanExilesServerUtility-3.3.0 and 7dServerUtility | https://gamercide.org/
 
@@ -132,6 +132,29 @@ In a standard web browser, type in the URL http://192.168.1.30:57520?restart=pas
 -----------------
  VERSION HISTORY
 -----------------
+(2023-07-14) v1.0.7 Stability improvements, bug fixes, and Discord server crash announcements
+- Fixed: New improved code for checking for server updates.
+- Fixed: Improved code for detecting existing servers to prevent duplicate servers from starting and to allow multiple servers to be hosted on the same machine.
+- Fixed: Query & telnet Watchdog was detecting server crashes but often failing to restart the server.  It is now fixed.
+- Fixed: Updated the server shutdown command to "saveandexit 0" for cleaner server shutdown.
+- Changed: SteamCMD Updater: Moved force install before login
+- Added: SteamCMD Updater: If any branch requires a password, including experimental, and no password given, the update check is skipped to prevent a restart loop.
+- Changed: Minor improvements to the log file.
+- Added: Sometimes EAH uses the Dedicated_EAH.yaml instead of the default file.  ESUU detects this and creates a log entry and prompts user to change if connection errors occur.
+- Changed: Default value for closing EAH is Always.  ESUU will now, by default, close EAH whenever servers are shut down because EAH no longer automatically reconnects when server comes online.
+- Changed: Default value for watchdog Query port monitoring changed to yes
+- Added: Discord: Watchdog can announce when a server crash is first detected and when it performs the restart.
+         Note! Announcements must be configured manually in the EmpyrionServerUpdateUtility.ini using any text editor.  There are two sections: DISCORD INTEGRATION & DISCORD MESSAGES sections.
+         Comment: In case there is a temporary loss of telnet/query connection or server freeze, multiple failures can be set before it actually restarts the server.  Default is 3 failed attempts.
+
+(2021-01-30) v1.0.6 Bug fixes.
+- Fixed: Line 19996 Error during server restarts. (Thanks to @Aleax for reporting)
+- Fixed: In-Game restart announcements were only showing first word. (Thanks to @SylenThunder for reporting)
+- Fixed: Improved reliability of Announcement Intervals in Config.
+- *Added: Optionally hide passwords from logs. (Thanks to @Aleax for requesting). 
+- *Added: Customizable EAH filename and location. (Thanks to @SylenThunder for requesting)
+*Manually set near the end of the EmpyrionServerUpdateUtility.ini file.
+
 (2020-12-12) v1.0.5 Bug Fix: Now closes EAH
 - Fixed: EAH failed to close. Util now closes EAH during updates and restarts, if desired.
 
